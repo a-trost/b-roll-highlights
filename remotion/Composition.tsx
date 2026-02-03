@@ -269,8 +269,6 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
           height: displayHeight,
           zIndex: 1,
           overflow: "hidden",
-          borderRadius: vcrEffect ? "8px" : "0px",
-          boxShadow: vcrEffect ? "0 0 60px rgba(0,0,0,0.5), inset 0 0 2px rgba(255,255,255,0.1)" : "none",
         }}
       >
         {/* Highlighter layer - behind the image text (only for highlight mode) */}
@@ -329,10 +327,10 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
             isDarkMode={isDarkBackground(backgroundColor)}
           />
         )}
-
-        {/* VCR Effect overlay - inside the transform container */}
-        {vcrEffect && <VCREffect intensity={0.7} />}
       </div>
+
+      {/* VCR Effect overlay - covers entire viewport */}
+      {vcrEffect && <VCREffect intensity={0.7} />}
     </AbsoluteFill>
   );
 };

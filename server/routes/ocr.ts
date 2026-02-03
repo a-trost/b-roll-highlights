@@ -1,23 +1,33 @@
-import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { runOCR } from '../services/tesseract';
 import { extractDominantColor } from '../services/colorExtractor';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '../..');
+const rootDir = path.resolve(import.meta.dir, '../..');
 
-const router = express.Router();
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-router.post('/', async (req, res) => {
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
+  });
+}
+
+export async function handleOCR(request: Request): Promise<Response> {
   try {
-    const { filename } = req.body;
+    const body = await request.json();
+    const { filename } = body;
 
     if (!filename) {
-      res.status(400).json({ error: 'Filename is required' });
-      return;
+      return jsonResponse({ error: 'Filename is required' }, 400);
     }
 
     const imagePath = path.join(rootDir, 'public/uploads', filename);
@@ -33,7 +43,7 @@ router.post('/', async (req, res) => {
       extractDominantColor(imagePath),
     ]);
 
-    res.json({
+    return jsonResponse({
       words,
       backgroundColor,
       imageWidth,
@@ -41,8 +51,6 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('OCR error:', error);
-    res.status(500).json({ error: 'Failed to process image' });
+    return jsonResponse({ error: 'Failed to process image' }, 500);
   }
-});
-
-export default router;
+}

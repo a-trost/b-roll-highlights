@@ -4,7 +4,7 @@ interface VCREffectProps {
   intensity?: number; // 0-1, controls overall effect strength
 }
 
-export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.7 }) => {
+export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
   const frame = useCurrentFrame();
 
   // Generate pseudo-random values for this frame

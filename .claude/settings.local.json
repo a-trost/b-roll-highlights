@@ -8,7 +8,9 @@
       "WebFetch(domain:roughjs.com)",
       "WebFetch(domain:www.remotion.dev)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:shopify.github.io)"
+      "WebFetch(domain:shopify.github.io)",
+      "Bash(bun install)",
+      "Bash(bunx tsc:*)"
     ]
   }
 }

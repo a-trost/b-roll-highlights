@@ -1,31 +1,81 @@
-import express from 'express';
-import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import uploadRouter from './routes/upload';
-import ocrRouter from './routes/ocr';
-import renderRouter from './routes/render';
+import { handleUpload } from './routes/upload';
+import { handleOCR } from './routes/ocr';
+import { handleRender } from './routes/render';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
-
-const app = express();
+const rootDir = path.resolve(import.meta.dir, '..');
 const PORT = 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-// Static file serving
-app.use('/uploads', express.static(path.join(rootDir, 'public/uploads')));
-app.use('/output', express.static(path.join(rootDir, 'output')));
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders,
+    },
+  });
+}
 
-// Routes
-app.use('/api/upload', uploadRouter);
-app.use('/api/ocr', ocrRouter);
-app.use('/api/render', renderRouter);
+async function serveStaticFile(filePath: string): Promise<Response> {
+  const file = Bun.file(filePath);
+  const exists = await file.exists();
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  if (!exists) {
+    return jsonResponse({ error: 'File not found' }, 404);
+  }
+
+  return new Response(file, {
+    headers: corsHeaders,
+  });
+}
+
+const server = Bun.serve({
+  port: PORT,
+  async fetch(request) {
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    // Static file serving for uploads
+    if (pathname.startsWith('/uploads/')) {
+      const filename = pathname.slice('/uploads/'.length);
+      const filePath = path.join(rootDir, 'public/uploads', filename);
+      return serveStaticFile(filePath);
+    }
+
+    // Static file serving for output videos
+    if (pathname.startsWith('/output/')) {
+      const filename = pathname.slice('/output/'.length);
+      const filePath = path.join(rootDir, 'output', filename);
+      return serveStaticFile(filePath);
+    }
+
+    // API routes
+    if (pathname === '/api/upload' && request.method === 'POST') {
+      return handleUpload(request);
+    }
+
+    if (pathname === '/api/ocr' && request.method === 'POST') {
+      return handleOCR(request);
+    }
+
+    if (pathname === '/api/render' && request.method === 'POST') {
+      return handleRender(request);
+    }
+
+    // 404 for unmatched routes
+    return jsonResponse({ error: 'Not found' }, 404);
+  },
 });
+
+console.log(`Server running on http://localhost:${server.port}`);
