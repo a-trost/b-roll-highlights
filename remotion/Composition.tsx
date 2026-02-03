@@ -18,6 +18,7 @@ import { RoughHighlighter } from "./components/RoughHighlighter";
 import { SvgCircler } from "./components/SvgCircler";
 import { SvgUnderliner } from "./components/SvgUnderliner";
 import { VCREffect } from "./components/VCREffect";
+import { LowerThird } from "./components/LowerThird";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
   props
@@ -38,6 +39,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     cameraMovement = "left-right" as CameraMovement,
     blurMode = "blur-in" as BlurMode,
     vcrEffect = false,
+    attributionText = "",
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
@@ -330,7 +332,10 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
       </div>
 
       {/* VCR Effect overlay - covers entire viewport */}
-      {vcrEffect && <VCREffect intensity={0.7} />}
+      {vcrEffect && <VCREffect intensity={0.6} />}
+
+      {/* Lower third attribution */}
+      {attributionText && <LowerThird text={attributionText} />}
     </AbsoluteFill>
   );
 };

@@ -52,6 +52,7 @@ function App() {
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
   const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
   const [vcrEffect, setVcrEffect] = useState(false);
+  const [attributionText, setAttributionText] = useState("");
 
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
@@ -177,6 +178,7 @@ function App() {
           cameraMovement,
           blurMode,
           vcrEffect,
+          attributionText,
         }),
       });
 
@@ -211,6 +213,7 @@ function App() {
     cameraMovement,
     blurMode,
     vcrEffect,
+    attributionText,
   ]);
 
   const handleClearSelection = useCallback(() => {
@@ -430,6 +433,24 @@ function App() {
                           <span className="toggle-slider"></span>
                           <span className="toggle-label">VCR Effect</span>
                         </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attribution Section */}
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Attribution</h3>
+                    <div className="settings-row">
+                      <div className="setting-group" style={{ flex: 1 }}>
+                        <label className="setting-label" htmlFor="attribution-text">Lower Third Text</label>
+                        <input
+                          type="text"
+                          id="attribution-text"
+                          className="text-input"
+                          placeholder="e.g., via @username or Source: example.com"
+                          value={attributionText}
+                          onChange={(e) => setAttributionText(e.target.value)}
+                        />
                       </div>
                     </div>
                   </div>
