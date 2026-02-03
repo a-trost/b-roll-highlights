@@ -7,7 +7,8 @@
       "WebFetch(domain:tesseract-ocr.github.io)",
       "WebFetch(domain:roughjs.com)",
       "WebFetch(domain:www.remotion.dev)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:shopify.github.io)"
     ]
   }
 }

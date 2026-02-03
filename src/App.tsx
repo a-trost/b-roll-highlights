@@ -7,6 +7,7 @@ import type {
   OCRResult,
   UploadResponse,
   RenderResponse,
+  MarkingMode,
 } from "./types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
@@ -18,6 +19,7 @@ import {
   MAX_CHARS_PER_SECOND,
   getHighlightColors,
   isDarkBackground,
+  CIRCLE_COLORS,
 } from "./types";
 
 type Status = {
@@ -37,7 +39,8 @@ function App() {
   const [imageHeight, setImageHeight] = useState(1080);
   const [videoPath, setVideoPath] = useState<string | null>(null);
   // Track color index separately so we can switch between light/dark palettes
-  const [highlightColorIndex, setHighlightColorIndex] = useState(0);
+  const [colorIndex, setColorIndex] = useState(0);
+  const [markingMode, setMarkingMode] = useState<MarkingMode>("highlight");
   const [leadInSeconds, setLeadInSeconds] = useState(DEFAULT_LEAD_IN_SECONDS);
   const [charsPerSecond, setCharsPerSecond] = useState(DEFAULT_CHARS_PER_SECOND);
   const [leadOutSeconds, setLeadOutSeconds] = useState(
@@ -49,10 +52,12 @@ function App() {
   const [isRendering, setIsRendering] = useState(false);
   const [status, setStatus] = useState<Status>(null);
 
-  // Get appropriate colors based on background brightness
-  const highlightColors = getHighlightColors(backgroundColor);
+  // Get appropriate colors based on mode and background brightness
   const isDark = isDarkBackground(backgroundColor);
-  const highlightColor = highlightColors[highlightColorIndex]?.value ?? highlightColors[0].value;
+  const availableColors =
+    markingMode === "circle" ? CIRCLE_COLORS : getHighlightColors(backgroundColor);
+  const selectedColor =
+    availableColors[colorIndex]?.value ?? availableColors[0].value;
 
   const handleUpload = useCallback(async (file: File) => {
     setIsUploading(true);
@@ -155,7 +160,8 @@ function App() {
           backgroundColor,
           imageWidth,
           imageHeight,
-          highlightColor,
+          highlightColor: selectedColor,
+          markingMode,
           leadInSeconds,
           charsPerSecond,
           leadOutSeconds,
@@ -184,7 +190,8 @@ function App() {
     backgroundColor,
     imageWidth,
     imageHeight,
-    highlightColor,
+    selectedColor,
+    markingMode,
     leadInSeconds,
     charsPerSecond,
     leadOutSeconds,
@@ -219,18 +226,42 @@ function App() {
                   imageHeight={imageHeight}
                 />
                 <div className="controls">
+                  <div className="mode-selector">
+                    <label>Mode:</label>
+                    <div className="mode-toggle">
+                      <button
+                        className={`mode-btn ${markingMode === "highlight" ? "active" : ""}`}
+                        onClick={() => {
+                          setMarkingMode("highlight");
+                          setColorIndex(0);
+                        }}
+                      >
+                        Highlight
+                      </button>
+                      <button
+                        className={`mode-btn ${markingMode === "circle" ? "active" : ""}`}
+                        onClick={() => {
+                          setMarkingMode("circle");
+                          setColorIndex(0);
+                        }}
+                      >
+                        Circle
+                      </button>
+                    </div>
+                  </div>
                   <div className="color-selector">
-                    <label htmlFor="highlight-color">
-                      Highlight Color{isDark ? " (Dark Mode)" : ""}:
+                    <label htmlFor="color-select">
+                      {markingMode === "highlight" ? "Highlight" : "Pen"} Color
+                      {markingMode === "highlight" && isDark ? " (Dark Mode)" : ""}:
                     </label>
                     <select
-                      id="highlight-color"
-                      value={highlightColorIndex}
+                      id="color-select"
+                      value={colorIndex}
                       onChange={(e) =>
-                        setHighlightColorIndex(parseInt(e.target.value, 10))
+                        setColorIndex(parseInt(e.target.value, 10))
                       }
                     >
-                      {highlightColors.map((color, index) => (
+                      {availableColors.map((color, index) => (
                         <option key={color.name} value={index}>
                           {color.name}
                         </option>

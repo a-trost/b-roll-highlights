@@ -6,7 +6,7 @@ import {
   interpolate,
   staticFile,
 } from "remotion";
-import type { HighlightProps } from "../src/types";
+import type { HighlightProps, MarkingMode } from "../src/types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -15,6 +15,7 @@ import {
   isDarkBackground,
 } from "../src/types";
 import { RoughHighlighter } from "./components/RoughHighlighter";
+import { SvgCircler } from "./components/SvgCircler";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
   props
@@ -27,10 +28,12 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     imageWidth = 1920,
     imageHeight = 1080,
     highlightColor = "rgba(255, 230, 0, 0.5)",
+    markingMode = "highlight" as MarkingMode,
     leadInSeconds = DEFAULT_LEAD_IN_SECONDS,
     charsPerSecond = DEFAULT_CHARS_PER_SECOND,
-    leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
+    leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
   } = typedProps;
+  void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
@@ -125,16 +128,18 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
           height: displayHeight,
         }}
       >
-        {/* Highlighter layer - behind the image text */}
-        <RoughHighlighter
-          words={selectedWords}
-          animationFrame={highlightFrame}
-          totalHighlightFrames={totalHighlightFrames}
-          scaleFactor={scaleFactor}
-          width={displayWidth}
-          height={displayHeight}
-          highlightColor={highlightColor}
-        />
+        {/* Highlighter layer - behind the image text (only for highlight mode) */}
+        {markingMode === "highlight" && (
+          <RoughHighlighter
+            words={selectedWords}
+            animationFrame={highlightFrame}
+            totalHighlightFrames={totalHighlightFrames}
+            scaleFactor={scaleFactor}
+            width={displayWidth}
+            height={displayHeight}
+            highlightColor={highlightColor}
+          />
+        )}
 
         {/* Image layer */}
         {imageSrc && (
@@ -147,8 +152,21 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
               top: 0,
               left: 0,
               zIndex: 2,
-              mixBlendMode: blendMode,
+              mixBlendMode: markingMode === "highlight" ? blendMode : "normal",
             }}
+          />
+        )}
+
+        {/* Circle layer - on top of the image (only for circle mode) */}
+        {markingMode === "circle" && (
+          <SvgCircler
+            words={selectedWords}
+            animationFrame={highlightFrame}
+            totalHighlightFrames={totalHighlightFrames}
+            scaleFactor={scaleFactor}
+            width={displayWidth}
+            height={displayHeight}
+            circleColor={highlightColor}
           />
         )}
       </div>

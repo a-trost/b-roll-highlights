@@ -48,6 +48,7 @@ export const RemotionRoot: React.FC = () => {
           imageWidth: 1920,
           imageHeight: 1080,
           highlightColor: "rgba(255, 230, 0, 0.5)",
+          markingMode: "highlight" as const,
           leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,

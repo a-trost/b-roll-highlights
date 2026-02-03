@@ -63,6 +63,8 @@ export interface OCRResult {
   imageHeight: number;
 }
 
+export type MarkingMode = "highlight" | "circle";
+
 export interface HighlightProps {
   imageSrc: string;
   selectedWords: WordBox[];
@@ -70,10 +72,21 @@ export interface HighlightProps {
   imageWidth: number;
   imageHeight: number;
   highlightColor: string;
+  markingMode: MarkingMode;
   leadInSeconds: number;
   leadOutSeconds: number;
   charsPerSecond: number;
 }
+
+// Circle/pen stroke colors (more opaque for pen-like appearance)
+export const CIRCLE_COLORS: HighlightColor[] = [
+  { name: "Red", value: "rgba(220, 38, 38, 0.85)" },
+  { name: "Blue", value: "rgba(37, 99, 235, 0.85)" },
+  { name: "Black", value: "rgba(0, 0, 0, 0.85)" },
+  { name: "Green", value: "rgba(22, 163, 74, 0.85)" },
+  { name: "Purple", value: "rgba(147, 51, 234, 0.85)" },
+  { name: "Orange", value: "rgba(234, 88, 12, 0.85)" },
+];
 
 export interface UploadResponse {
   filename: string;
