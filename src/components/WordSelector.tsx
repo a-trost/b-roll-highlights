@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import type { WordBox } from '../types';
+import type { WordBox, MarkingMode } from '../types';
 
 interface WordSelectorProps {
   imageSrc: string;
@@ -8,6 +8,8 @@ interface WordSelectorProps {
   onSelectionChange: (words: WordBox[]) => void;
   imageWidth: number;
   imageHeight: number;
+  markingMode: MarkingMode;
+  highlightColor: string;
 }
 
 export const WordSelector: React.FC<WordSelectorProps> = ({
@@ -16,6 +18,8 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   selectedWords,
   onSelectionChange,
   imageWidth,
+  markingMode,
+  highlightColor,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayScale, setDisplayScale] = useState(1);
@@ -118,20 +122,63 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
           alt="Uploaded"
           style={{ width: '100%', height: 'auto' }}
         />
-        {words.map((word, index) => (
-          <div
-            key={`${word.text}-${word.left}-${word.top}-${index}`}
-            className={`word-overlay ${isWordSelected(word) ? 'selected' : ''}`}
-            style={{
-              left: word.left * displayScale,
-              top: word.top * displayScale,
-              width: word.width * displayScale,
-              height: word.height * displayScale,
-            }}
-            onClick={() => toggleWord(word)}
-            title={word.text}
-          />
-        ))}
+        {words.map((word, index) => {
+          const isSelected = isWordSelected(word);
+
+          // Style based on marking mode
+          let bgColor = 'transparent';
+          let borderStyle: React.CSSProperties = {
+            borderColor: 'transparent',
+            borderWidth: 2,
+            borderStyle: 'solid',
+            borderRadius: '2px',
+          };
+
+          if (isSelected) {
+            if (markingMode === 'highlight') {
+              bgColor = highlightColor;
+              borderStyle = {
+                borderColor: 'rgba(255, 200, 0, 0.8)',
+                borderWidth: 2,
+                borderStyle: 'solid',
+                borderRadius: '2px',
+              };
+            } else if (markingMode === 'circle') {
+              borderStyle = {
+                borderColor: highlightColor,
+                borderWidth: 3,
+                borderStyle: 'solid',
+                borderRadius: '4px',
+              };
+            } else if (markingMode === 'underline') {
+              borderStyle = {
+                borderColor: 'transparent',
+                borderBottomColor: highlightColor,
+                borderWidth: 0,
+                borderBottomWidth: 3,
+                borderStyle: 'solid',
+                borderRadius: '0px',
+              };
+            }
+          }
+
+          return (
+            <div
+              key={`${word.text}-${word.left}-${word.top}-${index}`}
+              className="word-overlay"
+              style={{
+                left: word.left * displayScale,
+                top: word.top * displayScale,
+                width: word.width * displayScale,
+                height: word.height * displayScale,
+                backgroundColor: bgColor,
+                ...borderStyle,
+              }}
+              onClick={() => toggleWord(word)}
+              title={word.text}
+            />
+          );
+        })}
       </div>
 
       {selectedWords.length > 0 && (

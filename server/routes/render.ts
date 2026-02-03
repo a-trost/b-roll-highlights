@@ -25,6 +25,7 @@ router.post("/", async (req, res) => {
       blurredBackground,
       cameraMovement,
       blurMode,
+      vcrEffect,
     } = req.body;
 
     if (!filename || !selectedWords || !backgroundColor) {
@@ -46,6 +47,7 @@ router.post("/", async (req, res) => {
       blurredBackground: blurredBackground ?? false,
       cameraMovement: (cameraMovement as CameraMovement) || "left-right",
       blurMode: (blurMode as BlurMode) || "blur-in",
+      vcrEffect: vcrEffect ?? false,
     };
 
     const videoPath = await renderHighlightVideo(props);

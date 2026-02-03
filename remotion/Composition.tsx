@@ -16,6 +16,8 @@ import {
 } from "../src/types";
 import { RoughHighlighter } from "./components/RoughHighlighter";
 import { SvgCircler } from "./components/SvgCircler";
+import { SvgUnderliner } from "./components/SvgUnderliner";
+import { VCREffect } from "./components/VCREffect";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
   props
@@ -35,6 +37,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     blurredBackground = false,
     cameraMovement = "left-right" as CameraMovement,
     blurMode = "blur-in" as BlurMode,
+    vcrEffect = false,
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
@@ -265,6 +268,9 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
           width: displayWidth,
           height: displayHeight,
           zIndex: 1,
+          overflow: "hidden",
+          borderRadius: vcrEffect ? "8px" : "0px",
+          boxShadow: vcrEffect ? "0 0 60px rgba(0,0,0,0.5), inset 0 0 2px rgba(255,255,255,0.1)" : "none",
         }}
       >
         {/* Highlighter layer - behind the image text (only for highlight mode) */}
@@ -309,6 +315,23 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
             isDarkMode={isDarkBackground(backgroundColor)}
           />
         )}
+
+        {/* Underline layer - on top of the image (only for underline mode) */}
+        {markingMode === "underline" && (
+          <SvgUnderliner
+            words={selectedWords}
+            animationFrame={highlightFrame}
+            totalHighlightFrames={totalHighlightFrames}
+            scaleFactor={scaleFactor}
+            width={displayWidth}
+            height={displayHeight}
+            underlineColor={highlightColor}
+            isDarkMode={isDarkBackground(backgroundColor)}
+          />
+        )}
+
+        {/* VCR Effect overlay - inside the transform container */}
+        {vcrEffect && <VCREffect intensity={0.7} />}
       </div>
     </AbsoluteFill>
   );

@@ -51,6 +51,7 @@ function App() {
   const [blurredBackground, setBlurredBackground] = useState(false);
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
   const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
+  const [vcrEffect, setVcrEffect] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
@@ -60,7 +61,9 @@ function App() {
   // Get appropriate colors based on mode and background brightness
   const isDark = isDarkBackground(backgroundColor);
   const availableColors =
-    markingMode === "circle" ? getCircleColors(backgroundColor) : getHighlightColors(backgroundColor);
+    markingMode === "highlight"
+      ? getHighlightColors(backgroundColor)
+      : getCircleColors(backgroundColor); // circle and underline use same pen colors
   const selectedColor =
     availableColors[colorIndex]?.value ?? availableColors[0].value;
 
@@ -173,6 +176,7 @@ function App() {
           blurredBackground,
           cameraMovement,
           blurMode,
+          vcrEffect,
         }),
       });
 
@@ -206,6 +210,7 @@ function App() {
     blurredBackground,
     cameraMovement,
     blurMode,
+    vcrEffect,
   ]);
 
   const handleClearSelection = useCallback(() => {
@@ -235,183 +240,251 @@ function App() {
                   onSelectionChange={setSelectedWords}
                   imageWidth={imageWidth}
                   imageHeight={imageHeight}
+                  markingMode={markingMode}
+                  highlightColor={selectedColor}
                 />
-                <div className="controls">
-                  <div className="mode-selector">
-                    <label>Mode:</label>
-                    <div className="mode-toggle">
-                      <button
-                        className={`mode-btn ${markingMode === "highlight" ? "active" : ""}`}
-                        onClick={() => {
-                          setMarkingMode("highlight");
-                          setColorIndex(0);
-                        }}
-                      >
-                        Highlight
-                      </button>
-                      <button
-                        className={`mode-btn ${markingMode === "circle" ? "active" : ""}`}
-                        onClick={() => {
-                          setMarkingMode("circle");
-                          setColorIndex(0);
-                        }}
-                      >
-                        Circle
-                      </button>
+                <div className="settings-panel">
+                  {/* Style Section */}
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Style</h3>
+                    <div className="settings-row">
+                      <div className="setting-group">
+                        <span className="setting-label">Mode</span>
+                        <div className="mode-toggle">
+                          <button
+                            className={`mode-btn ${markingMode === "highlight" ? "active" : ""}`}
+                            onClick={() => {
+                              setMarkingMode("highlight");
+                              setColorIndex(0);
+                            }}
+                          >
+                            <span className="mode-icon">◼</span>
+                            Highlight
+                          </button>
+                          <button
+                            className={`mode-btn ${markingMode === "circle" ? "active" : ""}`}
+                            onClick={() => {
+                              setMarkingMode("circle");
+                              setColorIndex(0);
+                            }}
+                          >
+                            <span className="mode-icon">○</span>
+                            Circle
+                          </button>
+                          <button
+                            className={`mode-btn ${markingMode === "underline" ? "active" : ""}`}
+                            onClick={() => {
+                              setMarkingMode("underline");
+                              setColorIndex(0);
+                            }}
+                          >
+                            <span className="mode-icon">_</span>
+                            Underline
+                          </button>
+                        </div>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="color-select">
+                          {markingMode === "highlight" ? "Highlight" : "Pen"} Color
+                        </label>
+                        <div className="color-select-wrapper">
+                          <span
+                            className="color-preview"
+                            style={{ backgroundColor: selectedColor }}
+                          />
+                          <select
+                            id="color-select"
+                            value={colorIndex}
+                            onChange={(e) =>
+                              setColorIndex(parseInt(e.target.value, 10))
+                            }
+                          >
+                            {availableColors.map((color, index) => (
+                              <option key={color.name} value={index}>
+                                {color.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="color-selector">
-                    <label htmlFor="color-select">
-                      {markingMode === "highlight" ? "Highlight" : "Pen"} Color
-                      {markingMode === "highlight" && isDark ? " (Dark Mode)" : ""}:
-                    </label>
-                    <select
-                      id="color-select"
-                      value={colorIndex}
-                      onChange={(e) =>
-                        setColorIndex(parseInt(e.target.value, 10))
-                      }
+
+                  {/* Timing Section */}
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Timing</h3>
+                    <div className="settings-grid">
+                      <div className="slider-control">
+                        <div className="slider-header">
+                          <span className="slider-label">Lead In</span>
+                          <span className="slider-value">{leadInSeconds}s</span>
+                        </div>
+                        <input
+                          type="range"
+                          id="lead-in"
+                          min={MIN_LEAD_SECONDS}
+                          max={MAX_LEAD_SECONDS}
+                          step={0.5}
+                          value={leadInSeconds}
+                          onChange={(e) =>
+                            setLeadInSeconds(parseFloat(e.target.value))
+                          }
+                        />
+                      </div>
+                      <div className="slider-control">
+                        <div className="slider-header">
+                          <span className="slider-label">Speed</span>
+                          <span className="slider-value">{charsPerSecond} chr/s</span>
+                        </div>
+                        <input
+                          type="range"
+                          id="chars-per-second"
+                          min={MIN_CHARS_PER_SECOND}
+                          max={MAX_CHARS_PER_SECOND}
+                          step={1}
+                          value={charsPerSecond}
+                          onChange={(e) =>
+                            setCharsPerSecond(parseInt(e.target.value, 10))
+                          }
+                        />
+                      </div>
+                      <div className="slider-control">
+                        <div className="slider-header">
+                          <span className="slider-label">Lead Out</span>
+                          <span className="slider-value">{leadOutSeconds}s</span>
+                        </div>
+                        <input
+                          type="range"
+                          id="lead-out"
+                          min={MIN_LEAD_SECONDS}
+                          max={MAX_LEAD_SECONDS}
+                          step={0.5}
+                          value={leadOutSeconds}
+                          onChange={(e) =>
+                            setLeadOutSeconds(parseFloat(e.target.value))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Effects Section */}
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Effects</h3>
+                    <div className="settings-row">
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="camera-movement">Camera</label>
+                        <select
+                          id="camera-movement"
+                          className="select-input"
+                          value={cameraMovement}
+                          onChange={(e) =>
+                            setCameraMovement(e.target.value as CameraMovement)
+                          }
+                        >
+                          <option value="left-right">Left → Right</option>
+                          <option value="right-left">Right → Left</option>
+                          <option value="up-down">Up → Down</option>
+                          <option value="down-up">Down → Up</option>
+                          <option value="zoom-in">Zoom In</option>
+                          <option value="zoom-out">Zoom Out</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="blur-mode">Blur</label>
+                        <select
+                          id="blur-mode"
+                          className="select-input"
+                          value={blurMode}
+                          onChange={(e) =>
+                            setBlurMode(e.target.value as BlurMode)
+                          }
+                        >
+                          <option value="blur-in">Blur In</option>
+                          <option value="blur-out">Blur Out</option>
+                          <option value="blur-in-out">Blur In & Out</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <span className="setting-label">Background</span>
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={blurredBackground}
+                            onChange={(e) => setBlurredBackground(e.target.checked)}
+                          />
+                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">Blurred BG</span>
+                        </label>
+                      </div>
+                      <div className="setting-group">
+                        <span className="setting-label">Overlay</span>
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={vcrEffect}
+                            onChange={(e) => setVcrEffect(e.target.checked)}
+                          />
+                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">VCR Effect</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="settings-actions">
+                    <button
+                      className="btn btn-primary btn-generate"
+                      onClick={handleRender}
+                      disabled={selectedWords.length === 0 || isRendering}
                     >
-                      {availableColors.map((color, index) => (
-                        <option key={color.name} value={index}>
-                          {color.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="timing-controls">
-                    <div className="slider-control">
-                      <label htmlFor="lead-in">
-                        Before highlight: {leadInSeconds}s
-                      </label>
-                      <input
-                        type="range"
-                        id="lead-in"
-                        min={MIN_LEAD_SECONDS}
-                        max={MAX_LEAD_SECONDS}
-                        step={0.5}
-                        value={leadInSeconds}
-                        onChange={(e) =>
-                          setLeadInSeconds(parseFloat(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="slider-control">
-                      <label htmlFor="chars-per-second">
-                        Highlight speed: {charsPerSecond} chars/sec
-                      </label>
-                      <input
-                        type="range"
-                        id="chars-per-second"
-                        min={MIN_CHARS_PER_SECOND}
-                        max={MAX_CHARS_PER_SECOND}
-                        step={1}
-                        value={charsPerSecond}
-                        onChange={(e) =>
-                          setCharsPerSecond(parseInt(e.target.value, 10))
-                        }
-                      />
-                    </div>
-                    <div className="slider-control">
-                      <label htmlFor="lead-out">
-                        After highlight: {leadOutSeconds}s
-                      </label>
-                      <input
-                        type="range"
-                        id="lead-out"
-                        min={MIN_LEAD_SECONDS}
-                        max={MAX_LEAD_SECONDS}
-                        step={0.5}
-                        value={leadOutSeconds}
-                        onChange={(e) =>
-                          setLeadOutSeconds(parseFloat(e.target.value))
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="checkbox-control">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={blurredBackground}
-                        onChange={(e) => setBlurredBackground(e.target.checked)}
-                      />
-                      Blurred background
-                    </label>
-                  </div>
-                  <div className="effect-controls">
-                    <div className="select-control">
-                      <label htmlFor="camera-movement">Camera:</label>
-                      <select
-                        id="camera-movement"
-                        value={cameraMovement}
-                        onChange={(e) =>
-                          setCameraMovement(e.target.value as CameraMovement)
-                        }
+                      {isRendering ? (
+                        <>
+                          <span className="btn-spinner"></span>
+                          Rendering...
+                        </>
+                      ) : (
+                        <>Generate Video</>
+                      )}
+                    </button>
+                    <div className="btn-group-secondary">
+                      <button
+                        className="btn btn-ghost"
+                        onClick={handleClearSelection}
+                        disabled={selectedWords.length === 0}
                       >
-                        <option value="left-right">Left → Right</option>
-                        <option value="right-left">Right → Left</option>
-                        <option value="up-down">Up → Down</option>
-                        <option value="down-up">Down → Up</option>
-                        <option value="zoom-in">Zoom In</option>
-                        <option value="zoom-out">Zoom Out</option>
-                        <option value="none">None</option>
-                      </select>
-                    </div>
-                    <div className="select-control">
-                      <label htmlFor="blur-mode">Blur:</label>
-                      <select
-                        id="blur-mode"
-                        value={blurMode}
-                        onChange={(e) =>
-                          setBlurMode(e.target.value as BlurMode)
-                        }
+                        Clear Selection
+                      </button>
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => {
+                          setFilename(null);
+                          setImagePath(null);
+                          setWords([]);
+                          setSelectedWords([]);
+                          setVideoPath(null);
+                          setStatus(null);
+                        }}
                       >
-                        <option value="blur-in">Blur In</option>
-                        <option value="blur-out">Blur Out</option>
-                        <option value="blur-in-out">Blur In & Out</option>
-                        <option value="none">None</option>
-                      </select>
+                        New Image
+                      </button>
                     </div>
                   </div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleRender}
-                    disabled={selectedWords.length === 0 || isRendering}
-                  >
-                    Generate Video
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={handleClearSelection}
-                    disabled={selectedWords.length === 0}
-                  >
-                    Clear Selection
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setFilename(null);
-                      setImagePath(null);
-                      setWords([]);
-                      setSelectedWords([]);
-                      setVideoPath(null);
-                      setStatus(null);
-                    }}
-                  >
-                    Upload New Image
-                  </button>
                 </div>
               </>
             )}
           </div>
 
-          <VideoPreview videoPath={videoPath} isRendering={isRendering} />
+          <div className="preview-column">
+            <VideoPreview videoPath={videoPath} isRendering={isRendering} />
+            {status && (
+              <div className={`status ${status.type}`}>{status.message}</div>
+            )}
+          </div>
         </div>
-      )}
-
-      {status && (
-        <div className={`status ${status.type}`}>{status.message}</div>
       )}
     </div>
   );

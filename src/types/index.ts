@@ -63,7 +63,7 @@ export interface OCRResult {
   imageHeight: number;
 }
 
-export type MarkingMode = "highlight" | "circle";
+export type MarkingMode = "highlight" | "circle" | "underline";
 
 // Camera movement direction options
 export type CameraMovement =
@@ -92,6 +92,7 @@ export interface HighlightProps {
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
   blurMode: BlurMode;
+  vcrEffect: boolean;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)
