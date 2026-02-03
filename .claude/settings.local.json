@@ -10,7 +10,8 @@
       "Bash(npx tsc:*)",
       "WebFetch(domain:shopify.github.io)",
       "Bash(bun install)",
-      "Bash(bunx tsc:*)"
+      "Bash(bunx tsc:*)",
+      "Bash(ffmpeg:*)"
     ]
   }
 }

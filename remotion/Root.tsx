@@ -52,6 +52,12 @@ export const RemotionRoot: React.FC = () => {
           leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
+          blurredBackground: false,
+          cameraMovement: "left-right" as const,
+          blurMode: "blur-in" as const,
+          vcrEffect: false,
+          markerSound: false,
+          attributionText: "",
         }}
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as HighlightProps;

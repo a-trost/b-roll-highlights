@@ -40,6 +40,7 @@ export async function handleRender(request: Request): Promise<Response> {
       cameraMovement,
       blurMode,
       vcrEffect,
+      markerSound,
       attributionText,
     } = body;
 
@@ -62,6 +63,7 @@ export async function handleRender(request: Request): Promise<Response> {
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
       blurMode: (blurMode as BlurMode) || 'blur-in',
       vcrEffect: vcrEffect ?? false,
+      markerSound: markerSound ?? false,
       attributionText: attributionText || '',
     };
 

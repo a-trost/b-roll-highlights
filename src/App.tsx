@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useFavicon } from "./hooks/useFavicon";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
 import { VideoPreview } from "./components/VideoPreview";
@@ -52,12 +53,16 @@ function App() {
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
   const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
   const [vcrEffect, setVcrEffect] = useState(false);
+  const [markerSound, setMarkerSound] = useState(false);
   const [attributionText, setAttributionText] = useState("");
 
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [status, setStatus] = useState<Status>(null);
+
+  // Update favicon based on render state
+  useFavicon(isRendering, !!videoPath);
 
   // Get appropriate colors based on mode and background brightness
   const isDark = isDarkBackground(backgroundColor);
@@ -178,6 +183,7 @@ function App() {
           cameraMovement,
           blurMode,
           vcrEffect,
+          markerSound,
           attributionText,
         }),
       });
@@ -213,6 +219,7 @@ function App() {
     cameraMovement,
     blurMode,
     vcrEffect,
+    markerSound,
     attributionText,
   ]);
 
@@ -222,7 +229,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Remotion Highlights</h1>
+      <h1>B-Roll Highlights</h1>
 
       {!imagePath ? (
         <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
@@ -432,6 +439,18 @@ function App() {
                           />
                           <span className="toggle-slider"></span>
                           <span className="toggle-label">VCR Effect</span>
+                        </label>
+                      </div>
+                      <div className="setting-group">
+                        <span className="setting-label">Audio</span>
+                        <label className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={markerSound}
+                            onChange={(e) => setMarkerSound(e.target.checked)}
+                          />
+                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">Marker Sound</span>
                         </label>
                       </div>
                     </div>
