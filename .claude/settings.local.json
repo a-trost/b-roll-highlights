@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:roughnotation.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:tesseract-ocr.github.io)",
+      "WebFetch(domain:roughjs.com)",
+      "WebFetch(domain:www.remotion.dev)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

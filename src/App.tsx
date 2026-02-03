@@ -1,0 +1,333 @@
+import { useState, useCallback, useEffect } from "react";
+import { ImageUploader } from "./components/ImageUploader";
+import { WordSelector } from "./components/WordSelector";
+import { VideoPreview } from "./components/VideoPreview";
+import type {
+  WordBox,
+  OCRResult,
+  UploadResponse,
+  RenderResponse,
+} from "./types";
+import {
+  DEFAULT_LEAD_IN_SECONDS,
+  DEFAULT_LEAD_OUT_SECONDS,
+  MIN_LEAD_SECONDS,
+  MAX_LEAD_SECONDS,
+  DEFAULT_CHARS_PER_SECOND,
+  MIN_CHARS_PER_SECOND,
+  MAX_CHARS_PER_SECOND,
+  getHighlightColors,
+  isDarkBackground,
+} from "./types";
+
+type Status = {
+  type: "info" | "error" | "success";
+  message: string;
+} | null;
+
+function App() {
+  const [filename, setFilename] = useState<string | null>(null);
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [words, setWords] = useState<WordBox[]>([]);
+  const [selectedWords, setSelectedWords] = useState<WordBox[]>([]);
+  const [backgroundColor, setBackgroundColor] = useState<
+    [number, number, number]
+  >([255, 255, 255]);
+  const [imageWidth, setImageWidth] = useState(1920);
+  const [imageHeight, setImageHeight] = useState(1080);
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+  // Track color index separately so we can switch between light/dark palettes
+  const [highlightColorIndex, setHighlightColorIndex] = useState(0);
+  const [leadInSeconds, setLeadInSeconds] = useState(DEFAULT_LEAD_IN_SECONDS);
+  const [charsPerSecond, setCharsPerSecond] = useState(DEFAULT_CHARS_PER_SECOND);
+  const [leadOutSeconds, setLeadOutSeconds] = useState(
+    DEFAULT_LEAD_OUT_SECONDS
+  );
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [isRendering, setIsRendering] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+
+  // Get appropriate colors based on background brightness
+  const highlightColors = getHighlightColors(backgroundColor);
+  const isDark = isDarkBackground(backgroundColor);
+  const highlightColor = highlightColors[highlightColorIndex]?.value ?? highlightColors[0].value;
+
+  const handleUpload = useCallback(async (file: File) => {
+    setIsUploading(true);
+    setStatus({ type: "info", message: "Uploading image..." });
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const uploadData: UploadResponse = await uploadRes.json();
+      setFilename(uploadData.filename);
+      setImagePath(uploadData.path);
+      setSelectedWords([]);
+      setVideoPath(null);
+
+      // Run OCR
+      setIsProcessingOCR(true);
+      setStatus({ type: "info", message: "Processing image with OCR..." });
+
+      const ocrRes = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: uploadData.filename }),
+      });
+
+      if (!ocrRes.ok) {
+        throw new Error("OCR processing failed");
+      }
+
+      const ocrData: OCRResult = await ocrRes.json();
+      setWords(ocrData.words);
+      setBackgroundColor(ocrData.backgroundColor);
+      setImageWidth(ocrData.imageWidth);
+      setImageHeight(ocrData.imageHeight);
+
+      const imageIsDark = isDarkBackground(ocrData.backgroundColor);
+      setStatus({
+        type: "success",
+        message: `Found ${ocrData.words.length} words. ${imageIsDark ? "Dark" : "Light"} image detected.`,
+      });
+    } catch (error) {
+      console.error("Error:", error);
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "An error occurred",
+      });
+    } finally {
+      setIsUploading(false);
+      setIsProcessingOCR(false);
+    }
+  }, []);
+
+  // Handle paste events for clipboard images
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            handleUpload(file);
+          }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [handleUpload]);
+
+  const handleRender = useCallback(async () => {
+    if (!filename || selectedWords.length === 0) return;
+
+    setIsRendering(true);
+    setStatus({
+      type: "info",
+      message: "Rendering video... This may take a moment.",
+    });
+
+    try {
+      const res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename,
+          selectedWords,
+          backgroundColor,
+          imageWidth,
+          imageHeight,
+          highlightColor,
+          leadInSeconds,
+          charsPerSecond,
+          leadOutSeconds,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Render failed");
+      }
+
+      const data: RenderResponse = await res.json();
+      setVideoPath(data.videoPath);
+      setStatus({ type: "success", message: "Video rendered successfully!" });
+    } catch (error) {
+      console.error("Render error:", error);
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Render failed",
+      });
+    } finally {
+      setIsRendering(false);
+    }
+  }, [
+    filename,
+    selectedWords,
+    backgroundColor,
+    imageWidth,
+    imageHeight,
+    highlightColor,
+    leadInSeconds,
+    charsPerSecond,
+    leadOutSeconds,
+  ]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedWords([]);
+  }, []);
+
+  return (
+    <div className="app">
+      <h1>Remotion Highlights</h1>
+
+      {!imagePath ? (
+        <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
+      ) : (
+        <div className="container">
+          <div>
+            {isProcessingOCR ? (
+              <div className="loading">
+                <div className="spinner" />
+                <span>Processing image with OCR...</span>
+              </div>
+            ) : (
+              <>
+                <WordSelector
+                  imageSrc={imagePath}
+                  words={words}
+                  selectedWords={selectedWords}
+                  onSelectionChange={setSelectedWords}
+                  imageWidth={imageWidth}
+                  imageHeight={imageHeight}
+                />
+                <div className="controls">
+                  <div className="color-selector">
+                    <label htmlFor="highlight-color">
+                      Highlight Color{isDark ? " (Dark Mode)" : ""}:
+                    </label>
+                    <select
+                      id="highlight-color"
+                      value={highlightColorIndex}
+                      onChange={(e) =>
+                        setHighlightColorIndex(parseInt(e.target.value, 10))
+                      }
+                    >
+                      {highlightColors.map((color, index) => (
+                        <option key={color.name} value={index}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="timing-controls">
+                    <div className="slider-control">
+                      <label htmlFor="lead-in">
+                        Before highlight: {leadInSeconds}s
+                      </label>
+                      <input
+                        type="range"
+                        id="lead-in"
+                        min={MIN_LEAD_SECONDS}
+                        max={MAX_LEAD_SECONDS}
+                        step={0.5}
+                        value={leadInSeconds}
+                        onChange={(e) =>
+                          setLeadInSeconds(parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="slider-control">
+                      <label htmlFor="chars-per-second">
+                        Highlight speed: {charsPerSecond} chars/sec
+                      </label>
+                      <input
+                        type="range"
+                        id="chars-per-second"
+                        min={MIN_CHARS_PER_SECOND}
+                        max={MAX_CHARS_PER_SECOND}
+                        step={1}
+                        value={charsPerSecond}
+                        onChange={(e) =>
+                          setCharsPerSecond(parseInt(e.target.value, 10))
+                        }
+                      />
+                    </div>
+                    <div className="slider-control">
+                      <label htmlFor="lead-out">
+                        After highlight: {leadOutSeconds}s
+                      </label>
+                      <input
+                        type="range"
+                        id="lead-out"
+                        min={MIN_LEAD_SECONDS}
+                        max={MAX_LEAD_SECONDS}
+                        step={0.5}
+                        value={leadOutSeconds}
+                        onChange={(e) =>
+                          setLeadOutSeconds(parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleRender}
+                    disabled={selectedWords.length === 0 || isRendering}
+                  >
+                    Generate Video
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleClearSelection}
+                    disabled={selectedWords.length === 0}
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setFilename(null);
+                      setImagePath(null);
+                      setWords([]);
+                      setSelectedWords([]);
+                      setVideoPath(null);
+                      setStatus(null);
+                    }}
+                  >
+                    Upload New Image
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <VideoPreview videoPath={videoPath} isRendering={isRendering} />
+        </div>
+      )}
+
+      {status && (
+        <div className={`status ${status.type}`}>{status.message}</div>
+      )}
+    </div>
+  );
+}
+
+export default App;
