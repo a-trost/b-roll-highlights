@@ -26,12 +26,13 @@ function penDrawingEase(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// Generate a hand-drawn ellipse path with slight imperfections
-function createHandDrawnEllipsePath(
+// Generate a hand-drawn squircle path (superellipse) with slight imperfections
+// A squircle is between a circle and a rounded rectangle - smooth and organic
+function createHandDrawnSquirclePath(
   cx: number,
   cy: number,
-  rx: number,
-  ry: number,
+  halfWidth: number,
+  halfHeight: number,
   seed: number
 ): { path: string; length: number } {
   // Seeded random function for consistent randomness per span
@@ -44,27 +45,44 @@ function createHandDrawnEllipsePath(
     return min + seededRandom(offset) * (max - min);
   };
 
-  // Number of segments to create the ellipse
-  const segments = 24;
+  // Squircle exponent - higher = more rectangular, lower = more circular
+  // 2.0 = ellipse, 4.0 = squircle, higher = more rectangular
+  const n = 3.5;
+
+  // Number of segments for smooth curve
+  const segments = 32;
   const points: { x: number; y: number }[] = [];
 
-  // Generate points around the ellipse with slight variations
+  // Generate points along the superellipse with hand-drawn imperfections
+  // Start slightly past top-center for overlap effect
+  const startAngle = -Math.PI / 2 + 0.15;
+  // Go slightly past full circle for overlap
+  const endAngle = startAngle + Math.PI * 2 * 1.08;
+
   for (let i = 0; i <= segments; i++) {
-    // Don't close perfectly - stop slightly before completing the circle
-    const maxAngle = Math.PI * 2 * 0.93; // Stop at ~93% of the circle
-    const startOffset = random(-0.15, 0.15, seed * 100); // Random start position
-    const angle = (i / segments) * maxAngle + startOffset;
+    const t = i / segments;
+    const angle = startAngle + t * (endAngle - startAngle);
 
-    // Add randomness to radius (jitter)
-    const jitterX = random(-rx * 0.04, rx * 0.04, i * 3);
-    const jitterY = random(-ry * 0.04, ry * 0.04, i * 3 + 1);
+    // Superellipse formula: x = a * sign(cos(θ)) * |cos(θ)|^(2/n)
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    const signX = cosA >= 0 ? 1 : -1;
+    const signY = sinA >= 0 ? 1 : -1;
 
-    // Add slight waviness
-    const waveX = Math.sin(angle * 4 + seed) * rx * 0.025;
-    const waveY = Math.cos(angle * 3 + seed) * ry * 0.025;
+    let baseX = signX * Math.pow(Math.abs(cosA), 2 / n) * halfWidth;
+    let baseY = signY * Math.pow(Math.abs(sinA), 2 / n) * halfHeight;
 
-    const x = cx + (rx + jitterX + waveX) * Math.cos(angle);
-    const y = cy + (ry + jitterY + waveY) * Math.sin(angle);
+    // Add hand-drawn jitter
+    const jitterAmount = 0.025;
+    const jitterX = random(-halfWidth * jitterAmount, halfWidth * jitterAmount, i * 3);
+    const jitterY = random(-halfHeight * jitterAmount, halfHeight * jitterAmount, i * 3 + 1);
+
+    // Add subtle waviness
+    const waveX = Math.sin(angle * 5 + seed) * halfWidth * 0.015;
+    const waveY = Math.cos(angle * 4 + seed) * halfHeight * 0.015;
+
+    const x = cx + baseX + jitterX + waveX;
+    const y = cy + baseY + jitterY + waveY;
 
     points.push({ x, y });
   }
@@ -77,7 +95,7 @@ function createHandDrawnEllipsePath(
     const prev = points[i - 1];
     const current = points[i];
 
-    // Calculate segment length for total path length
+    // Calculate segment length
     const dx = current.x - prev.x;
     const dy = current.y - prev.y;
     length += Math.sqrt(dx * dx + dy * dy);
@@ -89,13 +107,13 @@ function createHandDrawnEllipsePath(
       const midY = (current.y + next.y) / 2;
       path += ` Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`;
     } else {
-      // Final segment - just line to the point
+      // Final segment
       path += ` L ${current.x.toFixed(2)} ${current.y.toFixed(2)}`;
     }
   }
 
-  // Approximate the curve length (quadratic curves are ~1.2x the chord length on average)
-  length *= 1.15;
+  // Adjust length for curves
+  length *= 1.1;
 
   return { path, length };
 }
@@ -208,10 +226,10 @@ export const SvgCircler: React.FC<SvgCirclerProps> = ({
     const padding = h * PADDING_RATIO;
     const cx = x + w / 2;
     const cy = y + h / 2;
-    const rx = w / 2 + padding;
-    const ry = h / 2 + padding * 0.7;
+    const halfWidth = w / 2 + padding;
+    const halfHeight = h / 2 + padding * 0.6;
 
-    const { path, length } = createHandDrawnEllipsePath(cx, cy, rx, ry, index + 1);
+    const { path, length } = createHandDrawnSquirclePath(cx, cy, halfWidth, halfHeight, index + 1);
     const strokeWidth = Math.max(2.5, h * 0.07);
 
     return { path, length, strokeWidth, h };
