@@ -8,6 +8,7 @@ interface SvgCirclerProps {
   width: number;
   height: number;
   circleColor: string;
+  isDarkMode: boolean;
 }
 
 interface CircleSpan {
@@ -47,17 +48,17 @@ function createHandDrawnSquirclePath(
 
   // Squircle exponent - higher = more rectangular, lower = more circular
   // 2.0 = ellipse, 4.0 = squircle, higher = more rectangular
-  const n = 3.5;
+  const n = 2.8;
 
   // Number of segments for smooth curve
-  const segments = 32;
+  const segments = 48;
   const points: { x: number; y: number }[] = [];
 
-  // Generate points along the superellipse with hand-drawn imperfections
+  // Generate points along the superellipse with subtle hand-drawn imperfections
   // Start slightly past top-center for overlap effect
-  const startAngle = -Math.PI / 2 + 0.15;
+  const startAngle = -Math.PI / 2 + 0.1;
   // Go slightly past full circle for overlap
-  const endAngle = startAngle + Math.PI * 2 * 1.08;
+  const endAngle = startAngle + Math.PI * 2 * 1.05;
 
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -72,17 +73,27 @@ function createHandDrawnSquirclePath(
     let baseX = signX * Math.pow(Math.abs(cosA), 2 / n) * halfWidth;
     let baseY = signY * Math.pow(Math.abs(sinA), 2 / n) * halfHeight;
 
-    // Add hand-drawn jitter
-    const jitterAmount = 0.025;
+    // Add very subtle hand-drawn variation (reduced from before)
+    const jitterAmount = 0.012;
     const jitterX = random(-halfWidth * jitterAmount, halfWidth * jitterAmount, i * 3);
     const jitterY = random(-halfHeight * jitterAmount, halfHeight * jitterAmount, i * 3 + 1);
 
-    // Add subtle waviness
-    const waveX = Math.sin(angle * 5 + seed) * halfWidth * 0.015;
-    const waveY = Math.cos(angle * 4 + seed) * halfHeight * 0.015;
+    // Add gentle waviness (reduced frequency and amplitude)
+    const waveX = Math.sin(angle * 2 + seed) * halfWidth * 0.008;
+    const waveY = Math.cos(angle * 2 + seed) * halfHeight * 0.008;
 
-    const x = cx + baseX + jitterX + waveX;
-    const y = cy + baseY + jitterY + waveY;
+    // Add slight inward offset at the end to prevent perfect overlap
+    // This kicks in during the overlap portion (last 5% of the path)
+    const overlapStart = 1.0 / 1.05; // When we've completed one full circle
+    let overlapOffset = 0;
+    if (t > overlapStart) {
+      // Gradually move inward during the overlap portion
+      const overlapProgress = (t - overlapStart) / (1 - overlapStart);
+      overlapOffset = overlapProgress * 0.10; // 10% inward at the very end
+    }
+
+    const x = cx + baseX * (1 - overlapOffset) + jitterX + waveX;
+    const y = cy + baseY * (1 - overlapOffset) + jitterY + waveY;
 
     points.push({ x, y });
   }
@@ -126,6 +137,7 @@ export const SvgCircler: React.FC<SvgCirclerProps> = ({
   width,
   height,
   circleColor,
+  isDarkMode,
 }) => {
   if (words.length === 0) {
     return null;
@@ -245,7 +257,7 @@ export const SvgCircler: React.FC<SvgCirclerProps> = ({
         left: 0,
         zIndex: 3,
         pointerEvents: "none",
-        mixBlendMode: "multiply",
+        mixBlendMode: isDarkMode ? "screen" : "multiply",
       }}
     >
       <defs>

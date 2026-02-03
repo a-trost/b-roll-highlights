@@ -8,6 +8,8 @@ import type {
   UploadResponse,
   RenderResponse,
   MarkingMode,
+  CameraMovement,
+  BlurMode,
 } from "./types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
@@ -18,8 +20,8 @@ import {
   MIN_CHARS_PER_SECOND,
   MAX_CHARS_PER_SECOND,
   getHighlightColors,
+  getCircleColors,
   isDarkBackground,
-  CIRCLE_COLORS,
 } from "./types";
 
 type Status = {
@@ -46,6 +48,9 @@ function App() {
   const [leadOutSeconds, setLeadOutSeconds] = useState(
     DEFAULT_LEAD_OUT_SECONDS
   );
+  const [blurredBackground, setBlurredBackground] = useState(false);
+  const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
+  const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
 
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
@@ -55,7 +60,7 @@ function App() {
   // Get appropriate colors based on mode and background brightness
   const isDark = isDarkBackground(backgroundColor);
   const availableColors =
-    markingMode === "circle" ? CIRCLE_COLORS : getHighlightColors(backgroundColor);
+    markingMode === "circle" ? getCircleColors(backgroundColor) : getHighlightColors(backgroundColor);
   const selectedColor =
     availableColors[colorIndex]?.value ?? availableColors[0].value;
 
@@ -165,6 +170,9 @@ function App() {
           leadInSeconds,
           charsPerSecond,
           leadOutSeconds,
+          blurredBackground,
+          cameraMovement,
+          blurMode,
         }),
       });
 
@@ -195,6 +203,9 @@ function App() {
     leadInSeconds,
     charsPerSecond,
     leadOutSeconds,
+    blurredBackground,
+    cameraMovement,
+    blurMode,
   ]);
 
   const handleClearSelection = useCallback(() => {
@@ -316,6 +327,51 @@ function App() {
                           setLeadOutSeconds(parseFloat(e.target.value))
                         }
                       />
+                    </div>
+                  </div>
+                  <div className="checkbox-control">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={blurredBackground}
+                        onChange={(e) => setBlurredBackground(e.target.checked)}
+                      />
+                      Blurred background
+                    </label>
+                  </div>
+                  <div className="effect-controls">
+                    <div className="select-control">
+                      <label htmlFor="camera-movement">Camera:</label>
+                      <select
+                        id="camera-movement"
+                        value={cameraMovement}
+                        onChange={(e) =>
+                          setCameraMovement(e.target.value as CameraMovement)
+                        }
+                      >
+                        <option value="left-right">Left → Right</option>
+                        <option value="right-left">Right → Left</option>
+                        <option value="up-down">Up → Down</option>
+                        <option value="down-up">Down → Up</option>
+                        <option value="zoom-in">Zoom In</option>
+                        <option value="zoom-out">Zoom Out</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                    <div className="select-control">
+                      <label htmlFor="blur-mode">Blur:</label>
+                      <select
+                        id="blur-mode"
+                        value={blurMode}
+                        onChange={(e) =>
+                          setBlurMode(e.target.value as BlurMode)
+                        }
+                      >
+                        <option value="blur-in">Blur In</option>
+                        <option value="blur-out">Blur Out</option>
+                        <option value="blur-in-out">Blur In & Out</option>
+                        <option value="none">None</option>
+                      </select>
                     </div>
                   </div>
                   <button

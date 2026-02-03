@@ -65,6 +65,19 @@ export interface OCRResult {
 
 export type MarkingMode = "highlight" | "circle";
 
+// Camera movement direction options
+export type CameraMovement =
+  | "left-right"
+  | "right-left"
+  | "up-down"
+  | "down-up"
+  | "zoom-in"
+  | "zoom-out"
+  | "none";
+
+// Blur effect options
+export type BlurMode = "blur-in" | "blur-out" | "blur-in-out" | "none";
+
 export interface HighlightProps {
   imageSrc: string;
   selectedWords: WordBox[];
@@ -76,10 +89,13 @@ export interface HighlightProps {
   leadInSeconds: number;
   leadOutSeconds: number;
   charsPerSecond: number;
+  blurredBackground: boolean;
+  cameraMovement: CameraMovement;
+  blurMode: BlurMode;
 }
 
-// Circle/pen stroke colors (more opaque for pen-like appearance)
-export const CIRCLE_COLORS: HighlightColor[] = [
+// Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)
+export const CIRCLE_COLORS_LIGHT: HighlightColor[] = [
   { name: "Red", value: "rgba(220, 38, 38, 0.85)" },
   { name: "Blue", value: "rgba(37, 99, 235, 0.85)" },
   { name: "Black", value: "rgba(0, 0, 0, 0.85)" },
@@ -87,6 +103,28 @@ export const CIRCLE_COLORS: HighlightColor[] = [
   { name: "Purple", value: "rgba(147, 51, 234, 0.85)" },
   { name: "Orange", value: "rgba(234, 88, 12, 0.85)" },
 ];
+
+// Circle/pen stroke colors for dark backgrounds (lighter colors with screen blend)
+export const CIRCLE_COLORS_DARK: HighlightColor[] = [
+  { name: "Red", value: "rgba(255, 100, 100, 0.9)" },
+  { name: "Blue", value: "rgba(100, 150, 255, 0.9)" },
+  { name: "White", value: "rgba(255, 255, 255, 0.9)" },
+  { name: "Green", value: "rgba(100, 255, 150, 0.9)" },
+  { name: "Purple", value: "rgba(200, 150, 255, 0.9)" },
+  { name: "Orange", value: "rgba(255, 180, 100, 0.9)" },
+];
+
+// Legacy export for backwards compatibility
+export const CIRCLE_COLORS = CIRCLE_COLORS_LIGHT;
+
+// Get circle colors based on background brightness
+export function getCircleColors(
+  backgroundColor: [number, number, number]
+): HighlightColor[] {
+  return isDarkBackground(backgroundColor)
+    ? CIRCLE_COLORS_DARK
+    : CIRCLE_COLORS_LIGHT;
+}
 
 export interface UploadResponse {
   filename: string;

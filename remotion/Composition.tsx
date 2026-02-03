@@ -6,7 +6,7 @@ import {
   interpolate,
   staticFile,
 } from "remotion";
-import type { HighlightProps, MarkingMode } from "../src/types";
+import type { HighlightProps, MarkingMode, CameraMovement, BlurMode } from "../src/types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -32,6 +32,9 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     leadInSeconds = DEFAULT_LEAD_IN_SECONDS,
     charsPerSecond = DEFAULT_CHARS_PER_SECOND,
     leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
+    blurredBackground = false,
+    cameraMovement = "left-right" as CameraMovement,
+    blurMode = "blur-in" as BlurMode,
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
@@ -40,22 +43,135 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   // Calculate timing based on lead-in/lead-out
   const leadInFrames = Math.round(leadInSeconds * FPS);
 
-  // Animation values - animate over the entire video duration
-  const blur = interpolate(frame, [0, 30], [20, 0], {
-    extrapolateRight: "clamp",
-  });
+  // Calculate blur based on blur mode
+  const calculateBlur = (): number => {
+    const maxBlur = 20;
+    const blurDuration = 30; // frames for blur transition
 
-  const scale = interpolate(frame, [0, durationInFrames], [1.0, 1.05], {
-    extrapolateRight: "clamp",
-  });
+    switch (blurMode) {
+      case "blur-in":
+        return interpolate(frame, [0, blurDuration], [maxBlur, 0], {
+          extrapolateRight: "clamp",
+        });
+      case "blur-out":
+        return interpolate(
+          frame,
+          [durationInFrames - blurDuration, durationInFrames],
+          [0, maxBlur],
+          { extrapolateLeft: "clamp" }
+        );
+      case "blur-in-out":
+        if (frame < blurDuration) {
+          return interpolate(frame, [0, blurDuration], [maxBlur, 0], {
+            extrapolateRight: "clamp",
+          });
+        } else if (frame > durationInFrames - blurDuration) {
+          return interpolate(
+            frame,
+            [durationInFrames - blurDuration, durationInFrames],
+            [0, maxBlur],
+            { extrapolateLeft: "clamp" }
+          );
+        }
+        return 0;
+      case "none":
+      default:
+        return 0;
+    }
+  };
 
-  const rotateX = interpolate(frame, [0, durationInFrames], [7.5, -7.5], {
-    extrapolateRight: "clamp",
-  });
+  const blur = calculateBlur();
 
-  const rotateY = interpolate(frame, [0, durationInFrames], [-7.5, 7.5], {
-    extrapolateRight: "clamp",
-  });
+  // Calculate camera movement based on setting
+  const calculateCameraTransform = (): {
+    rotateX: number;
+    rotateY: number;
+    scale: number;
+  } => {
+    const rotationAmount = 7.5;
+    const scaleStart = 1.0;
+    const scaleEnd = 1.05;
+
+    switch (cameraMovement) {
+      case "left-right":
+        return {
+          rotateX: 0,
+          rotateY: interpolate(
+            frame,
+            [0, durationInFrames],
+            [-rotationAmount, rotationAmount],
+            { extrapolateRight: "clamp" }
+          ),
+          scale: interpolate(frame, [0, durationInFrames], [scaleStart, scaleEnd], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "right-left":
+        return {
+          rotateX: 0,
+          rotateY: interpolate(
+            frame,
+            [0, durationInFrames],
+            [rotationAmount, -rotationAmount],
+            { extrapolateRight: "clamp" }
+          ),
+          scale: interpolate(frame, [0, durationInFrames], [scaleStart, scaleEnd], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "up-down":
+        return {
+          rotateX: interpolate(
+            frame,
+            [0, durationInFrames],
+            [rotationAmount, -rotationAmount],
+            { extrapolateRight: "clamp" }
+          ),
+          rotateY: 0,
+          scale: interpolate(frame, [0, durationInFrames], [scaleStart, scaleEnd], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "down-up":
+        return {
+          rotateX: interpolate(
+            frame,
+            [0, durationInFrames],
+            [-rotationAmount, rotationAmount],
+            { extrapolateRight: "clamp" }
+          ),
+          rotateY: 0,
+          scale: interpolate(frame, [0, durationInFrames], [scaleStart, scaleEnd], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "zoom-in":
+        return {
+          rotateX: 0,
+          rotateY: 0,
+          scale: interpolate(frame, [0, durationInFrames], [scaleStart, scaleEnd + 0.1], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "zoom-out":
+        return {
+          rotateX: 0,
+          rotateY: 0,
+          scale: interpolate(frame, [0, durationInFrames], [scaleEnd + 0.1, scaleStart], {
+            extrapolateRight: "clamp",
+          }),
+        };
+      case "none":
+      default:
+        return {
+          rotateX: 0,
+          rotateY: 0,
+          scale: 1.0,
+        };
+    }
+  };
+
+  const { rotateX, rotateY, scale } = calculateCameraTransform();
 
   // Calculate total highlight duration based on character count
   const totalCharacters = selectedWords.reduce(
@@ -117,8 +233,30 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        overflow: "hidden",
       }}
     >
+      {/* Blurred background image layer */}
+      {blurredBackground && imageSrc && (
+        <Img
+          src={resolvedImageSrc}
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: `translate(-50%, -50%) scale(${scale * 1.2})`,
+            filter: "blur(40px)",
+            width: "auto",
+            height: "auto",
+            minWidth: "120%",
+            minHeight: "120%",
+            objectFit: "cover",
+            zIndex: 0,
+            opacity: 0.7,
+          }}
+        />
+      )}
+
       <div
         style={{
           transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`,
@@ -126,6 +264,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
           position: "relative",
           width: displayWidth,
           height: displayHeight,
+          zIndex: 1,
         }}
       >
         {/* Highlighter layer - behind the image text (only for highlight mode) */}
@@ -167,6 +306,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
             width={displayWidth}
             height={displayHeight}
             circleColor={highlightColor}
+            isDarkMode={isDarkBackground(backgroundColor)}
           />
         )}
       </div>

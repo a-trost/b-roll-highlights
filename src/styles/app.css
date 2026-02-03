@@ -291,6 +291,72 @@ body {
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
 }
 
+/* Checkbox Control */
+.checkbox-control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.checkbox-control label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.checkbox-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #667eea;
+  cursor: pointer;
+}
+
+/* Effect Controls */
+.effect-controls {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.select-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.select-control label {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.select-control select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background-color: #2d3748;
+  color: #eee;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.select-control select:hover {
+  border-color: #667eea;
+  background-color: #3d4a5c;
+}
+
+.select-control select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+}
+
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;

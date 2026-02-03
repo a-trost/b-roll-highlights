@@ -1,6 +1,6 @@
 import express from "express";
 import { renderHighlightVideo } from "../services/remotionRenderer";
-import type { HighlightProps, WordBox, MarkingMode } from "../../src/types";
+import type { HighlightProps, WordBox, MarkingMode, CameraMovement, BlurMode } from "../../src/types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -22,6 +22,9 @@ router.post("/", async (req, res) => {
       leadInSeconds,
       charsPerSecond,
       leadOutSeconds,
+      blurredBackground,
+      cameraMovement,
+      blurMode,
     } = req.body;
 
     if (!filename || !selectedWords || !backgroundColor) {
@@ -40,6 +43,9 @@ router.post("/", async (req, res) => {
       leadInSeconds: leadInSeconds ?? DEFAULT_LEAD_IN_SECONDS,
       charsPerSecond: charsPerSecond ?? DEFAULT_CHARS_PER_SECOND,
       leadOutSeconds: leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS,
+      blurredBackground: blurredBackground ?? false,
+      cameraMovement: (cameraMovement as CameraMovement) || "left-right",
+      blurMode: (blurMode as BlurMode) || "blur-in",
     };
 
     const videoPath = await renderHighlightVideo(props);
