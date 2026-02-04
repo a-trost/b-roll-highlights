@@ -42,6 +42,7 @@ export async function handleRender(request: Request): Promise<Response> {
       blurMode,
       vcrEffect,
       unblurSeconds,
+      previewSeconds,
       attributionText,
     } = body;
 
@@ -62,6 +63,7 @@ export async function handleRender(request: Request): Promise<Response> {
       leadOutSeconds: leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS,
       blurredBackground: blurredBackground ?? false,
       unblurSeconds: unblurSeconds ?? DEFAULT_UNBLUR_SECONDS,
+      previewSeconds: previewSeconds ?? 0,
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
       blurMode: (blurMode as BlurMode) || 'blur-in',
       vcrEffect: vcrEffect ?? false,

@@ -54,6 +54,7 @@ export const RemotionRoot: React.FC = () => {
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
           unblurSeconds: DEFAULT_UNBLUR_SECONDS,
+          previewSeconds: 0,
           blurredBackground: false,
           cameraMovement: "left-right" as const,
           blurMode: "blur-in" as const,
@@ -76,9 +77,13 @@ export const RemotionRoot: React.FC = () => {
 
           // Total duration = lead-in + highlight animation + lead-out
           const totalFrames = leadInFrames + highlightFrames + leadOutFrames;
+          const previewSeconds = typedProps.previewSeconds ?? 0;
+          const previewFrames =
+            previewSeconds > 0 ? Math.max(1, Math.round(previewSeconds * FPS)) : 0;
 
           return {
-            durationInFrames: totalFrames,
+            durationInFrames:
+              previewFrames > 0 ? Math.min(totalFrames, previewFrames) : totalFrames,
             props,
           };
         }}

@@ -89,6 +89,7 @@ export interface HighlightProps {
   leadInSeconds: number;
   leadOutSeconds: number;
   charsPerSecond: number;
+  previewSeconds?: number;
   unblurSeconds: number;
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
