@@ -107,6 +107,24 @@ body {
   color: #e2e8f0;
 }
 
+.word-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.word-selector-header h2 {
+  margin-bottom: 0;
+}
+
+.word-selector-clear {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  border-radius: 999px;
+}
+
 .image-container {
   position: relative;
   display: inline-block;

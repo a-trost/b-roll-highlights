@@ -20,6 +20,9 @@ import {
   DEFAULT_CHARS_PER_SECOND,
   MIN_CHARS_PER_SECOND,
   MAX_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
+  MIN_UNBLUR_SECONDS,
+  MAX_UNBLUR_SECONDS,
   getHighlightColors,
   getCircleColors,
   isDarkBackground,
@@ -49,6 +52,9 @@ function App() {
   const [leadOutSeconds, setLeadOutSeconds] = useState(
     DEFAULT_LEAD_OUT_SECONDS
   );
+  const [unblurSeconds, setUnblurSeconds] = useState(
+    DEFAULT_UNBLUR_SECONDS
+  );
   const [blurredBackground, setBlurredBackground] = useState(false);
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
   const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
@@ -67,7 +73,7 @@ function App() {
   // Get appropriate colors based on mode and background brightness
   const isDark = isDarkBackground(backgroundColor);
   const availableColors =
-    markingMode === "highlight"
+    markingMode === "highlight" || markingMode === "unblur"
       ? getHighlightColors(backgroundColor)
       : getCircleColors(backgroundColor); // circle and underline use same pen colors
   const selectedColor =
@@ -185,6 +191,7 @@ function App() {
           cameraMovement,
           blurMode,
           vcrEffect,
+          unblurSeconds,
           attributionText,
         }),
       });
@@ -221,6 +228,7 @@ function App() {
     cameraMovement,
     blurMode,
     vcrEffect,
+    unblurSeconds,
     attributionText,
   ]);
 
@@ -318,11 +326,24 @@ function App() {
                             <span className="mode-icon">_</span>
                             Underline
                           </button>
+                          <button
+                            className={`mode-btn ${markingMode === "unblur" ? "active" : ""}`}
+                            onClick={() => {
+                              setMarkingMode("unblur");
+                              setColorIndex(0);
+                            }}
+                          >
+                            <span className="mode-icon">◧</span>
+                            Unblur
+                          </button>
                         </div>
                       </div>
                       <div className="setting-group">
                         <label className="setting-label" htmlFor="color-select">
-                          {markingMode === "highlight" ? "Highlight" : "Pen"} Color
+                          {markingMode === "highlight" || markingMode === "unblur"
+                            ? "Highlight"
+                            : "Pen"}{" "}
+                          Color
                         </label>
                         <div className="color-select-wrapper">
                           <span
@@ -402,6 +423,25 @@ function App() {
                           }
                         />
                       </div>
+                      {markingMode === "unblur" && (
+                        <div className="slider-control">
+                          <div className="slider-header">
+                            <span className="slider-label">Unblur</span>
+                            <span className="slider-value">{unblurSeconds}s</span>
+                          </div>
+                          <input
+                            type="range"
+                            id="unblur-duration"
+                            min={MIN_UNBLUR_SECONDS}
+                            max={MAX_UNBLUR_SECONDS}
+                            step={0.1}
+                            value={unblurSeconds}
+                            onChange={(e) =>
+                              setUnblurSeconds(parseFloat(e.target.value))
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -11,6 +11,7 @@ import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
   FPS,
   isDarkBackground,
 } from "../src/types";
@@ -19,6 +20,7 @@ import { SvgCircler } from "./components/SvgCircler";
 import { SvgUnderliner } from "./components/SvgUnderliner";
 import { VCREffect } from "./components/VCREffect";
 import { LowerThird } from "./components/LowerThird";
+import { UnblurReveal } from "./components/UnblurReveal";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
   props
@@ -35,6 +37,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     leadInSeconds = DEFAULT_LEAD_IN_SECONDS,
     charsPerSecond = DEFAULT_CHARS_PER_SECOND,
     leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
+    unblurSeconds = DEFAULT_UNBLUR_SECONDS,
     blurredBackground = false,
     cameraMovement = "left-right" as CameraMovement,
     blurMode = "blur-in" as BlurMode,
@@ -192,6 +195,14 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   // Highlight starts after lead-in period (minimum 30 frames for blur to clear)
   const highlightStartFrame = Math.max(30, leadInFrames);
   const highlightFrame = Math.max(0, frame - highlightStartFrame);
+  const unblurDurationFrames = Math.max(1, Math.round(unblurSeconds * FPS));
+  const unblurEndFrame = highlightStartFrame + unblurDurationFrames;
+  const unblurProgress = interpolate(
+    frame,
+    [highlightStartFrame, unblurEndFrame],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
 
   const bgColor = `rgb(${backgroundColor[0]}, ${backgroundColor[1]}, ${backgroundColor[2]})`;
 
@@ -199,6 +210,8 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   // multiply: white becomes transparent (good for light backgrounds)
   // screen: black becomes transparent (good for dark backgrounds)
   const blendMode = isDarkBackground(backgroundColor) ? "screen" : "multiply";
+  const unblurBlurAmount = 6;
+  const unblurOverlayBlur = unblurBlurAmount * (1 - unblurProgress);
 
   // Calculate image dimensions to fit within composition while maintaining aspect ratio
   const compositionWidth = 1920;
@@ -287,7 +300,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
         )}
 
         {/* Image layer */}
-        {imageSrc && (
+        {imageSrc && markingMode !== "unblur" && (
           <Img
             src={resolvedImageSrc}
             style={{
@@ -300,6 +313,34 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
               mixBlendMode: markingMode === "highlight" ? blendMode : "normal",
             }}
           />
+        )}
+
+        {/* Unblur mode: blurred base + reveal sharp text */}
+        {imageSrc && markingMode === "unblur" && (
+          <>
+            <Img
+              src={resolvedImageSrc}
+              style={{
+                width: displayWidth,
+                height: displayHeight,
+                position: "absolute",
+                top: 0,
+                left: 0,
+                zIndex: 2,
+                filter: `blur(${unblurBlurAmount}px)`,
+              }}
+            />
+            <UnblurReveal
+              imageSrc={resolvedImageSrc}
+              words={selectedWords}
+              scaleFactor={scaleFactor}
+              width={displayWidth}
+              height={displayHeight}
+              isActive={frame >= highlightStartFrame}
+              opacity={unblurProgress}
+              blurAmount={unblurOverlayBlur}
+            />
+          </>
         )}
 
         {/* Circle layer - on top of the image (only for circle mode) */}
@@ -336,6 +377,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
 
       {/* Lower third attribution */}
       {attributionText && <LowerThird text={attributionText} />}
+
     </AbsoluteFill>
   );
 };

@@ -5,6 +5,7 @@ import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
   FPS,
 } from "../src/types";
 
@@ -52,6 +53,7 @@ export const RemotionRoot: React.FC = () => {
           leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
+          unblurSeconds: DEFAULT_UNBLUR_SECONDS,
           blurredBackground: false,
           cameraMovement: "left-right" as const,
           blurMode: "blur-in" as const,
