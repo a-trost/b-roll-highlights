@@ -238,10 +238,10 @@ function App() {
           handleRender();
         }
       }
-      // Cmd+S to download video
+      // Cmd+S to download video (always prevent browser save dialog)
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
         if (videoPath) {
-          e.preventDefault();
           const link = document.createElement("a");
           link.href = videoPath;
           link.download = "";
