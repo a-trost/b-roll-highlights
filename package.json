@@ -16,6 +16,7 @@
     "@remotion/player": "^4.0.242",
     "@remotion/renderer": "^4.0.242",
     "@remotion/skia": "4.0.242",
+    "@remotion/web-renderer": "^4.0.417",
     "@shopify/react-native-skia": "1.5.0",
     "color-thief-node": "^1.0.4",
     "react": "^18.3.1",

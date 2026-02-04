@@ -11,7 +11,8 @@
       "WebFetch(domain:shopify.github.io)",
       "Bash(bun install)",
       "Bash(bunx tsc:*)",
-      "Bash(ffmpeg:*)"
+      "Bash(ffmpeg:*)",
+      "Bash(bun build:*)"
     ]
   }
 }
