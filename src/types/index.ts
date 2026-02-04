@@ -94,7 +94,6 @@ export interface HighlightProps {
   blurMode: BlurMode;
   vcrEffect: boolean;
   attributionText: string;
-  markerSound: boolean;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)

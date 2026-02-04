@@ -19,7 +19,6 @@ import { SvgCircler } from "./components/SvgCircler";
 import { SvgUnderliner } from "./components/SvgUnderliner";
 import { VCREffect } from "./components/VCREffect";
 import { LowerThird } from "./components/LowerThird";
-import { MarkerSound } from "./components/MarkerSound";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
   props
@@ -41,7 +40,6 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     blurMode = "blur-in" as BlurMode,
     vcrEffect = false,
     attributionText = "",
-    markerSound = false,
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
@@ -338,14 +336,6 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
 
       {/* Lower third attribution */}
       {attributionText && <LowerThird text={attributionText} />}
-
-      {/* Marker sound effect */}
-      {markerSound && (
-        <MarkerSound
-          startFrame={highlightStartFrame}
-          durationFrames={totalHighlightFrames}
-        />
-      )}
     </AbsoluteFill>
   );
 };

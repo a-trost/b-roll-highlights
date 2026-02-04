@@ -3,11 +3,23 @@ import React from 'react';
 interface VideoPreviewProps {
   videoPath: string | null;
   isRendering: boolean;
+  renderTime: number | null;
+}
+
+function formatRenderTime(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
 }
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({
   videoPath,
   isRendering,
+  renderTime,
 }) => {
   if (isRendering) {
     return (
@@ -43,13 +55,21 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         loop
         src={videoPath}
       />
-      <a
-        href={videoPath}
-        download
-        className="download-link"
-      >
-        Download Video
-      </a>
+      <div className="download-row">
+        <a
+          href={videoPath}
+          download
+          className="download-link"
+        >
+          Download Video
+          <span className="keyboard-shortcut">⌘S</span>
+        </a>
+        {renderTime && (
+          <span className="render-time">
+            Rendered in {formatRenderTime(renderTime)}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

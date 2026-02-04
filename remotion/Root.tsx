@@ -56,7 +56,6 @@ export const RemotionRoot: React.FC = () => {
           cameraMovement: "left-right" as const,
           blurMode: "blur-in" as const,
           vcrEffect: false,
-          markerSound: false,
           attributionText: "",
         }}
         calculateMetadata={({ props }) => {

@@ -53,12 +53,12 @@ function App() {
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
   const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
   const [vcrEffect, setVcrEffect] = useState(false);
-  const [markerSound, setMarkerSound] = useState(false);
   const [attributionText, setAttributionText] = useState("");
 
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
+  const [renderTime, setRenderTime] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>(null);
 
   // Update favicon based on render state
@@ -159,11 +159,13 @@ function App() {
     if (!filename || selectedWords.length === 0) return;
 
     setIsRendering(true);
+    setRenderTime(null);
     setStatus({
       type: "info",
       message: "Rendering video... This may take a moment.",
     });
 
+    const startTime = Date.now();
     try {
       const res = await fetch("/api/render", {
         method: "POST",
@@ -183,7 +185,6 @@ function App() {
           cameraMovement,
           blurMode,
           vcrEffect,
-          markerSound,
           attributionText,
         }),
       });
@@ -194,6 +195,7 @@ function App() {
 
       const data: RenderResponse = await res.json();
       setVideoPath(data.videoPath);
+      setRenderTime(Date.now() - startTime);
       setStatus({ type: "success", message: "Video rendered successfully!" });
     } catch (error) {
       console.error("Render error:", error);
@@ -219,9 +221,34 @@ function App() {
     cameraMovement,
     blurMode,
     vcrEffect,
-    markerSound,
     attributionText,
   ]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+Enter to render
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        if (selectedWords.length > 0 && !isRendering) {
+          e.preventDefault();
+          handleRender();
+        }
+      }
+      // Cmd+S to download video
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        if (videoPath) {
+          e.preventDefault();
+          const link = document.createElement("a");
+          link.href = videoPath;
+          link.download = "";
+          link.click();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedWords.length, isRendering, handleRender, videoPath]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedWords([]);
@@ -441,19 +468,7 @@ function App() {
                           <span className="toggle-label">VCR Effect</span>
                         </label>
                       </div>
-                      <div className="setting-group">
-                        <span className="setting-label">Audio</span>
-                        <label className="toggle-switch">
-                          <input
-                            type="checkbox"
-                            checked={markerSound}
-                            onChange={(e) => setMarkerSound(e.target.checked)}
-                          />
-                          <span className="toggle-slider"></span>
-                          <span className="toggle-label">Marker Sound</span>
-                        </label>
-                      </div>
-                    </div>
+                                          </div>
                   </div>
 
                   {/* Attribution Section */}
@@ -487,7 +502,10 @@ function App() {
                           Rendering...
                         </>
                       ) : (
-                        <>Generate Video</>
+                        <>
+                          Generate Video
+                          <span className="keyboard-shortcut">⌘↵</span>
+                        </>
                       )}
                     </button>
                     <div className="btn-group-secondary">
@@ -519,7 +537,7 @@ function App() {
           </div>
 
           <div className="preview-column">
-            <VideoPreview videoPath={videoPath} isRendering={isRendering} />
+            <VideoPreview videoPath={videoPath} isRendering={isRendering} renderTime={renderTime} />
             {status && (
               <div className={`status ${status.type}`}>{status.message}</div>
             )}
