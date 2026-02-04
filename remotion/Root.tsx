@@ -5,6 +5,7 @@ import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
   FPS,
 } from "../src/types";
 
@@ -52,6 +53,8 @@ export const RemotionRoot: React.FC = () => {
           leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
+          unblurSeconds: DEFAULT_UNBLUR_SECONDS,
+          previewSeconds: 0,
           blurredBackground: false,
           cameraMovement: "left-right" as const,
           enterAnimation: "blur" as const,
@@ -79,9 +82,13 @@ export const RemotionRoot: React.FC = () => {
 
           // Total duration = lead-in + highlight animation + lead-out + exit buffer
           const totalFrames = leadInFrames + highlightFrames + leadOutFrames + exitBuffer;
+          const previewSeconds = typedProps.previewSeconds ?? 0;
+          const previewFrames =
+            previewSeconds > 0 ? Math.max(1, Math.round(previewSeconds * FPS)) : 0;
 
           return {
-            durationInFrames: totalFrames,
+            durationInFrames:
+              previewFrames > 0 ? Math.min(totalFrames, previewFrames) : totalFrames,
             props,
           };
         }}

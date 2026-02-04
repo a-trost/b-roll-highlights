@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef } from 'react';
 
 interface ImageUploaderProps {
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
   isUploading: boolean;
 }
 
@@ -27,9 +27,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       e.preventDefault();
       setIsDragging(false);
 
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) {
-        onUpload(file);
+      const files = Array.from(e.dataTransfer.files).filter((file) =>
+        file.type.startsWith('image/')
+      );
+      if (files.length > 0) {
+        onUpload(files);
       }
     },
     [onUpload]
@@ -41,9 +43,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        onUpload(file);
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        onUpload(files);
       }
     },
     [onUpload]
@@ -61,20 +63,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         ref={inputRef}
         type="file"
         accept="image/png,image/jpeg,image/jpg,image/webp"
+        multiple
         onChange={handleFileChange}
-        disabled={isUploading}
       />
       {isUploading ? (
         <div className="loading">
           <div className="spinner" />
-          <span>Uploading...</span>
+          <span>Uploading images...</span>
         </div>
       ) : (
         <>
           <div className="upload-icon">📷</div>
-          <p>Drag and drop an image here</p>
+          <p>Drag and drop images here</p>
           <p>paste from clipboard (Ctrl/Cmd+V)</p>
-          <p>or click to select a file</p>
+          <p>or click to select files</p>
         </>
       )}
     </div>

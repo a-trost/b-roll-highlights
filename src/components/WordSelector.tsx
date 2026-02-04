@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import type { WordBox, MarkingMode } from '../types';
 
 interface WordSelectorProps {
@@ -21,8 +21,26 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   markingMode,
   highlightColor,
 }) => {
+  interface WordEntry {
+    word: WordBox;
+    index: number;
+  }
+
+  interface DragState {
+    startOrderIndex: number;
+    currentOrderIndex: number;
+    startWordIndex: number;
+    hasMoved: boolean;
+    baseSelection: WordBox[];
+  }
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayScale, setDisplayScale] = useState(1);
+  const dragStateRef = useRef<DragState | null>(null);
+
+  const setDragState = useCallback((next: DragState | null) => {
+    dragStateRef.current = next;
+  }, []);
 
   useEffect(() => {
     const updateScale = () => {
@@ -37,7 +55,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     return () => window.removeEventListener('resize', updateScale);
   }, [imageWidth]);
 
-  const toggleWord = (word: WordBox) => {
+  const toggleWord = useCallback((word: WordBox) => {
     const isSelected = selectedWords.some(
       (w) =>
         w.left === word.left &&
@@ -59,7 +77,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     } else {
       onSelectionChange([...selectedWords, word]);
     }
-  };
+  }, [onSelectionChange, selectedWords]);
 
   const isWordSelected = (word: WordBox) => {
     return selectedWords.some(
@@ -70,48 +88,179 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     );
   };
 
-  const sortedSelectedWords = useMemo(() => {
-    if (selectedWords.length === 0) return [];
+  const sortWordEntries = useCallback((source: WordBox[]): WordEntry[] => {
+    if (source.length === 0) return [];
 
-    // Group words into rows based on vertical overlap
-    const wordsCopy = [...selectedWords];
-    const rows: WordBox[][] = [];
+    const entries: WordEntry[] = source.map((word, index) => ({ word, index }));
+    const rows: WordEntry[][] = [];
 
-    // Sort by top position first to process top-to-bottom
-    wordsCopy.sort((a, b) => a.top - b.top);
+    entries.sort((a, b) => a.word.top - b.word.top);
 
-    for (const word of wordsCopy) {
-      // Find a row where this word belongs (vertical overlap or close proximity)
+    for (const entry of entries) {
       let foundRow = false;
       for (const row of rows) {
-        // Check if word overlaps vertically with any word in the row
-        const rowTop = Math.min(...row.map(w => w.top));
-        const rowBottom = Math.max(...row.map(w => w.top + w.height));
-        const wordBottom = word.top + word.height;
+        const rowTop = Math.min(...row.map((w) => w.word.top));
+        const rowBottom = Math.max(...row.map((w) => w.word.top + w.word.height));
+        const wordBottom = entry.word.top + entry.word.height;
 
-        // Words are on same row if they vertically overlap
-        const overlaps = word.top < rowBottom && wordBottom > rowTop;
+        const overlaps = entry.word.top < rowBottom && wordBottom > rowTop;
         if (overlaps) {
-          row.push(word);
+          row.push(entry);
           foundRow = true;
           break;
         }
       }
 
       if (!foundRow) {
-        rows.push([word]);
+        rows.push([entry]);
       }
     }
 
-    // Sort each row by left position, then flatten
-    return rows
-      .sort((a, b) => Math.min(...a.map(w => w.top)) - Math.min(...b.map(w => w.top)))
-      .flatMap(row => row.sort((a, b) => a.left - b.left));
-  }, [selectedWords]);
+    rows.sort(
+      (a, b) =>
+        Math.min(...a.map((w) => w.word.top)) -
+        Math.min(...b.map((w) => w.word.top))
+    );
+    for (const row of rows) {
+      row.sort((a, b) => a.word.left - b.word.left);
+    }
+
+    return rows.flatMap((row) => row);
+  }, []);
+
+  const getWordKey = useCallback((word: WordBox) => {
+    return `${word.left}:${word.top}:${word.text}`;
+  }, []);
+
+  const mergeSelection = useCallback(
+    (base: WordBox[], range: WordBox[]) => {
+      const seen = new Set<string>();
+      const merged: WordBox[] = [];
+
+      for (const word of base) {
+        const key = getWordKey(word);
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(word);
+        }
+      }
+
+      for (const word of range) {
+        const key = getWordKey(word);
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(word);
+        }
+      }
+
+      return merged;
+    },
+    [getWordKey]
+  );
+
+  const sortedSelectedWords = useMemo(
+    () => sortWordEntries(selectedWords).map((entry) => entry.word),
+    [selectedWords, sortWordEntries]
+  );
+
+  const orderedWordEntries = useMemo(
+    () => sortWordEntries(words),
+    [words, sortWordEntries]
+  );
+
+  const orderIndexByWordIndex = useMemo(() => {
+    const map = new Map<number, number>();
+    orderedWordEntries.forEach((entry, orderIndex) => {
+      map.set(entry.index, orderIndex);
+    });
+    return map;
+  }, [orderedWordEntries]);
+
+  const getRangeWords = useCallback(
+    (startOrderIndex: number, endOrderIndex: number) => {
+      if (orderedWordEntries.length === 0) return [];
+      const minIndex = Math.min(startOrderIndex, endOrderIndex);
+      const maxIndex = Math.max(startOrderIndex, endOrderIndex);
+      return orderedWordEntries
+        .slice(minIndex, maxIndex + 1)
+        .map((entry) => entry.word);
+    },
+    [orderedWordEntries]
+  );
+
+  const handleWordPointerDown = useCallback(
+    (wordIndex: number) => (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const orderIndex = orderIndexByWordIndex.get(wordIndex);
+      if (orderIndex === undefined) return;
+      setDragState({
+        startOrderIndex: orderIndex,
+        currentOrderIndex: orderIndex,
+        startWordIndex: wordIndex,
+        hasMoved: false,
+        baseSelection: selectedWords,
+      });
+    },
+    [orderIndexByWordIndex, selectedWords, setDragState]
+  );
+
+  const handleWordPointerEnter = useCallback(
+    (wordIndex: number) => {
+      const current = dragStateRef.current;
+      if (!current) return;
+      const orderIndex = orderIndexByWordIndex.get(wordIndex);
+      if (orderIndex === undefined) return;
+      if (orderIndex === current.currentOrderIndex) return;
+
+      const range = getRangeWords(current.startOrderIndex, orderIndex);
+      onSelectionChange(mergeSelection(current.baseSelection, range));
+      const hasMoved = orderIndex !== current.startOrderIndex;
+
+      setDragState({
+        ...current,
+        currentOrderIndex: orderIndex,
+        hasMoved: current.hasMoved || hasMoved,
+      });
+    },
+    [getRangeWords, mergeSelection, onSelectionChange, orderIndexByWordIndex, setDragState]
+  );
+
+  useEffect(() => {
+    const handlePointerUp = () => {
+      const current = dragStateRef.current;
+      if (!current) return;
+      if (!current.hasMoved) {
+        const word = words[current.startWordIndex];
+        if (word) {
+          toggleWord(word);
+        }
+      }
+      setDragState(null);
+    };
+
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [toggleWord, words]);
 
   return (
     <div className="word-selector">
-      <h2>Select Words to Highlight</h2>
+      <div className="word-selector-header">
+        <h2>Select Words to Highlight</h2>
+        <button
+          className="btn-ghost word-selector-clear"
+          type="button"
+          onClick={() => onSelectionChange([])}
+          disabled={selectedWords.length === 0}
+        >
+          Clear Selection
+        </button>
+      </div>
       <div
         className="image-container"
         ref={containerRef}
@@ -159,6 +308,14 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
                 borderStyle: 'solid',
                 borderRadius: '0px',
               };
+            } else if (markingMode === 'unblur') {
+              bgColor = 'rgba(255, 255, 255, 0.12)';
+              borderStyle = {
+                borderColor: highlightColor,
+                borderWidth: 2,
+                borderStyle: 'solid',
+                borderRadius: '2px',
+              };
             }
           }
 
@@ -174,7 +331,8 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
                 backgroundColor: bgColor,
                 ...borderStyle,
               }}
-              onClick={() => toggleWord(word)}
+              onPointerDown={handleWordPointerDown(index)}
+              onPointerEnter={() => handleWordPointerEnter(index)}
               title={word.text}
             />
           );

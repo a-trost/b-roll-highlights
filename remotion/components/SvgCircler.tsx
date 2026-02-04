@@ -47,11 +47,11 @@ function createHandDrawnSquirclePath(
   };
 
   // Squircle exponent - higher = more rectangular, lower = more circular
-  // 2.0 = ellipse, 4.0 = squircle, higher = more rectangular
-  const n = 2.8;
+  // Use a value just above 2 to stay very close to a circle
+  const n = 2.2;
 
   // Number of segments for smooth curve
-  const segments = 48;
+  const segments = 64;
   const points: { x: number; y: number }[] = [];
 
   // Generate points along the superellipse with subtle hand-drawn imperfections
@@ -73,8 +73,8 @@ function createHandDrawnSquirclePath(
     let baseX = signX * Math.pow(Math.abs(cosA), 2 / n) * halfWidth;
     let baseY = signY * Math.pow(Math.abs(sinA), 2 / n) * halfHeight;
 
-    // Add very subtle hand-drawn variation (reduced from before)
-    const jitterAmount = 0.012;
+    // Add very subtle hand-drawn variation
+    const jitterAmount = 0;
     const jitterX = random(-halfWidth * jitterAmount, halfWidth * jitterAmount, i * 3);
     const jitterY = random(-halfHeight * jitterAmount, halfHeight * jitterAmount, i * 3 + 1);
 
@@ -226,7 +226,7 @@ export const SvgCircler: React.FC<SvgCirclerProps> = ({
   const totalSpans = spans.length;
 
   // Padding as percentage of height
-  const PADDING_RATIO = 0.3;
+  const PADDING_RATIO = 0.4;
 
   // Pre-calculate all paths and their data
   const pathsData = spans.map((span, index) => {
@@ -238,8 +238,10 @@ export const SvgCircler: React.FC<SvgCirclerProps> = ({
     const padding = h * PADDING_RATIO;
     const cx = x + w / 2;
     const cy = y + h / 2;
+    // Make the shape more circular by giving vertical and horizontal
+    // radii similar padding instead of squashing vertically
     const halfWidth = w / 2 + padding;
-    const halfHeight = h / 2 + padding * 0.6;
+    const halfHeight = h / 2 + padding * 0.9;
 
     const { path, length } = createHandDrawnSquirclePath(cx, cy, halfWidth, halfHeight, index + 1);
     const strokeWidth = Math.max(2.5, h * 0.07);
