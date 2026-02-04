@@ -2,22 +2,25 @@ import { useCurrentFrame, random } from "remotion";
 
 interface VCREffectProps {
   intensity?: number; // 0-1, controls overall effect strength
+  isDarkMode?: boolean; // true for dark backgrounds
 }
 
-export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
+export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6, isDarkMode = false }) => {
   const frame = useCurrentFrame();
 
   // Generate pseudo-random values for this frame
   const noiseOffset = random(`noise-${frame}`) * 1000;
-  const trackingOffset = random(`tracking-${frame}`);
-  const glitchChance = random(`glitch-${frame}`);
-
-  // Occasional tracking glitch (horizontal band that moves)
-  const showTrackingGlitch = glitchChance > 0.95;
-  const trackingPercent = trackingOffset * 100;
 
   // Subtle vertical jitter
   const jitterY = (random(`jitter-${frame}`) - 0.5) * 2 * intensity;
+
+  // Colors adapt based on background brightness
+  const scanlineColor = isDarkMode ? "255, 255, 255" : "0, 0, 0";
+  const scanlineOpacity = isDarkMode ? 0.12 : 0.18;
+  const bandOpacity = isDarkMode ? 0.03 : 0.05;
+  const vignetteColor = isDarkMode ? "0, 0, 0" : "0, 0, 0"; // Vignette stays dark
+  const edgeColor = isDarkMode ? "0, 0, 0" : "0, 0, 0"; // Edges stay dark
+  const tintColor = isDarkMode ? "rgba(100, 200, 255, 0.03)" : "rgba(0, 255, 200, 0.02)";
 
   return (
     <div
@@ -42,11 +45,12 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
           height: "100%",
           background: `repeating-linear-gradient(
             0deg,
-            rgba(0, 0, 0, ${0.18 * intensity}) 0px,
-            rgba(0, 0, 0, ${0.18 * intensity}) 1px,
+            rgba(${scanlineColor}, ${scanlineOpacity * intensity}) 0px,
+            rgba(${scanlineColor}, ${scanlineOpacity * intensity}) 1px,
             transparent 1px,
             transparent 2px
           )`,
+          mixBlendMode: isDarkMode ? "soft-light" : "normal",
           pointerEvents: "none",
         }}
       />
@@ -63,9 +67,10 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
             0deg,
             transparent 0px,
             transparent 4px,
-            rgba(0, 0, 0, ${0.05 * intensity}) 4px,
-            rgba(0, 0, 0, ${0.05 * intensity}) 8px
+            rgba(${scanlineColor}, ${bandOpacity * intensity}) 4px,
+            rgba(${scanlineColor}, ${bandOpacity * intensity}) 8px
           )`,
+          mixBlendMode: isDarkMode ? "soft-light" : "normal",
           pointerEvents: "none",
         }}
       />
@@ -116,35 +121,13 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
           left: 0,
           width: "100%",
           height: "100%",
-          opacity: 0.06 * intensity,
+          opacity: (isDarkMode ? 0.1 : 0.06) * intensity,
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           backgroundPosition: `${noiseOffset}px ${noiseOffset}px`,
+          mixBlendMode: isDarkMode ? "overlay" : "normal",
           pointerEvents: "none",
         }}
       />
-
-      {/* Tracking glitch - horizontal distortion band */}
-      {showTrackingGlitch && (
-        <div
-          style={{
-            position: "absolute",
-            top: `${trackingPercent}%`,
-            left: 0,
-            width: "100%",
-            height: 6 + random(`glitch-height-${frame}`) * 16,
-            background: `linear-gradient(
-              90deg,
-              transparent 0%,
-              rgba(255, 255, 255, ${0.15 * intensity}) 20%,
-              rgba(255, 255, 255, ${0.25 * intensity}) 50%,
-              rgba(255, 255, 255, ${0.15 * intensity}) 80%,
-              transparent 100%
-            )`,
-            transform: `translateX(${(random(`glitch-x-${frame}`) - 0.5) * 30}px)`,
-            pointerEvents: "none",
-          }}
-        />
-      )}
 
       {/* Vignette effect */}
       <div
@@ -158,7 +141,7 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
             ellipse at center,
             transparent 0%,
             transparent 60%,
-            rgba(0, 0, 0, ${0.4 * intensity}) 100%
+            rgba(${vignetteColor}, ${0.4 * intensity}) 100%
           )`,
           pointerEvents: "none",
         }}
@@ -172,8 +155,8 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
           left: 0,
           width: "100%",
           height: "100%",
-          background: "rgba(0, 255, 200, 0.02)",
-          mixBlendMode: "overlay",
+          background: tintColor,
+          mixBlendMode: isDarkMode ? "screen" : "overlay",
           opacity: intensity,
           pointerEvents: "none",
         }}
@@ -189,7 +172,7 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
           height: 8,
           background: `linear-gradient(
             180deg,
-            rgba(0, 0, 0, ${0.5 * intensity}) 0%,
+            rgba(${edgeColor}, ${0.5 * intensity}) 0%,
             transparent 100%
           )`,
           pointerEvents: "none",
@@ -204,7 +187,7 @@ export const VCREffect: React.FC<VCREffectProps> = ({ intensity = 0.6 }) => {
           height: 8,
           background: `linear-gradient(
             0deg,
-            rgba(0, 0, 0, ${0.5 * intensity}) 0%,
+            rgba(${edgeColor}, ${0.5 * intensity}) 0%,
             transparent 100%
           )`,
           pointerEvents: "none",

@@ -460,7 +460,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
       </div>
 
       {/* VCR Effect overlay - covers entire viewport */}
-      {vcrEffect && <VCREffect intensity={0.6} />}
+      {vcrEffect && <VCREffect intensity={0.6} isDarkMode={isDarkBackground(backgroundColor)} />}
 
       {/* Lower third attribution */}
       {attributionText && <LowerThird text={attributionText} />}
