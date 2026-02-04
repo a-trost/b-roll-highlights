@@ -63,7 +63,7 @@ export interface OCRResult {
   imageHeight: number;
 }
 
-export type MarkingMode = "highlight" | "circle" | "underline";
+export type MarkingMode = "highlight" | "circle" | "underline" | "unblur";
 
 // Camera movement direction options
 export type CameraMovement =
@@ -92,6 +92,8 @@ export interface HighlightProps {
   leadInSeconds: number;
   leadOutSeconds: number;
   charsPerSecond: number;
+  previewSeconds?: number;
+  unblurSeconds: number;
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
   enterAnimation: EnterAnimation;
@@ -147,6 +149,11 @@ export const DEFAULT_LEAD_OUT_SECONDS = 2;
 export const MIN_LEAD_SECONDS = 0;
 export const MAX_LEAD_SECONDS = 8;
 export const FPS = 30;
+
+// Unblur animation duration (seconds)
+export const DEFAULT_UNBLUR_SECONDS = 0.6;
+export const MIN_UNBLUR_SECONDS = 0.1;
+export const MAX_UNBLUR_SECONDS = 3;
 
 // Highlight animation speed (characters per second)
 export const DEFAULT_CHARS_PER_SECOND = 15;

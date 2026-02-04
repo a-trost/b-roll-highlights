@@ -4,6 +4,7 @@ import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
 } from '../../src/types';
 
 const corsHeaders = {
@@ -41,6 +42,8 @@ export async function handleRender(request: Request): Promise<Response> {
       enterAnimation,
       exitAnimation,
       vcrEffect,
+      unblurSeconds,
+      previewSeconds,
       attributionText,
     } = body;
 
@@ -60,6 +63,8 @@ export async function handleRender(request: Request): Promise<Response> {
       charsPerSecond: charsPerSecond ?? DEFAULT_CHARS_PER_SECOND,
       leadOutSeconds: leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS,
       blurredBackground: blurredBackground ?? false,
+      unblurSeconds: unblurSeconds ?? DEFAULT_UNBLUR_SECONDS,
+      previewSeconds: previewSeconds ?? 0,
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
       enterAnimation: (enterAnimation as EnterAnimation) || 'blur',
       exitAnimation: (exitAnimation as ExitAnimation) || 'none',

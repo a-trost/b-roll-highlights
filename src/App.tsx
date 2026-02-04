@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useFavicon } from "./hooks/useFavicon";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
@@ -21,6 +21,9 @@ import {
   DEFAULT_CHARS_PER_SECOND,
   MIN_CHARS_PER_SECOND,
   MAX_CHARS_PER_SECOND,
+  DEFAULT_UNBLUR_SECONDS,
+  MIN_UNBLUR_SECONDS,
+  MAX_UNBLUR_SECONDS,
   getHighlightColors,
   getCircleColors,
   isDarkBackground,
@@ -31,111 +34,293 @@ type Status = {
   message: string;
 } | null;
 
-function App() {
-  const [filename, setFilename] = useState<string | null>(null);
-  const [imagePath, setImagePath] = useState<string | null>(null);
-  const [words, setWords] = useState<WordBox[]>([]);
-  const [selectedWords, setSelectedWords] = useState<WordBox[]>([]);
-  const [backgroundColor, setBackgroundColor] = useState<
-    [number, number, number]
-  >([255, 255, 255]);
-  const [imageWidth, setImageWidth] = useState(1920);
-  const [imageHeight, setImageHeight] = useState(1080);
-  const [videoPath, setVideoPath] = useState<string | null>(null);
-  // Track color index separately so we can switch between light/dark palettes
-  const [colorIndex, setColorIndex] = useState(0);
-  const [markingMode, setMarkingMode] = useState<MarkingMode>("highlight");
-  const [leadInSeconds, setLeadInSeconds] = useState(DEFAULT_LEAD_IN_SECONDS);
-  const [charsPerSecond, setCharsPerSecond] = useState(DEFAULT_CHARS_PER_SECOND);
-  const [leadOutSeconds, setLeadOutSeconds] = useState(
-    DEFAULT_LEAD_OUT_SECONDS
+type ItemSettings = {
+  colorIndex: number;
+  markingMode: MarkingMode;
+  leadInSeconds: number;
+  charsPerSecond: number;
+  leadOutSeconds: number;
+  unblurSeconds: number;
+  blurredBackground: boolean;
+  cameraMovement: CameraMovement;
+  enterAnimation: EnterAnimation;
+  exitAnimation: ExitAnimation;
+  vcrEffect: boolean;
+  attributionText: string;
+};
+
+type QueueItem = {
+  id: string;
+  sourceName: string;
+  filename: string | null;
+  imagePath: string | null;
+  words: WordBox[];
+  selectedWords: WordBox[];
+  backgroundColor: [number, number, number];
+  imageWidth: number;
+  imageHeight: number;
+  settings: ItemSettings;
+  videoPath: string | null;
+  renderTime: number | null;
+  isPreview: boolean;
+  isUploading: boolean;
+  isProcessingOCR: boolean;
+  isRendering: boolean;
+  isRenderingPreview: boolean;
+  status: Status;
+};
+
+type StoredQueueItem = {
+  id: string;
+  sourceName: string;
+  filename: string | null;
+  imagePath: string | null;
+  words: WordBox[];
+  selectedWords: WordBox[];
+  backgroundColor: [number, number, number];
+  imageWidth: number;
+  imageHeight: number;
+  settings: ItemSettings;
+  videoPath: string | null;
+  renderTime: number | null;
+  isPreview: boolean;
+};
+
+const STORAGE_KEY = "broll-queue-v1";
+const PREVIEW_SECONDS = 6;
+const MAX_UPLOAD_CONCURRENCY = 2;
+const MAX_RENDER_CONCURRENCY = 2;
+
+const createDefaultSettings = (): ItemSettings => ({
+  colorIndex: 0,
+  markingMode: "highlight",
+  leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
+  charsPerSecond: DEFAULT_CHARS_PER_SECOND,
+  leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
+  unblurSeconds: DEFAULT_UNBLUR_SECONDS,
+  blurredBackground: false,
+  cameraMovement: "left-right",
+  enterAnimation: "blur",
+  exitAnimation: "none",
+  vcrEffect: false,
+  attributionText: "",
+});
+
+const createQueueItem = (
+  overrides: Partial<QueueItem> & { id: string; sourceName: string }
+): QueueItem => ({
+  id: overrides.id,
+  sourceName: overrides.sourceName,
+  filename: overrides.filename ?? null,
+  imagePath: overrides.imagePath ?? null,
+  words: overrides.words ?? [],
+  selectedWords: overrides.selectedWords ?? [],
+  backgroundColor: overrides.backgroundColor ?? [255, 255, 255],
+  imageWidth: overrides.imageWidth ?? 1920,
+  imageHeight: overrides.imageHeight ?? 1080,
+  settings: { ...createDefaultSettings(), ...overrides.settings },
+  videoPath: overrides.videoPath ?? null,
+  renderTime: overrides.renderTime ?? null,
+  isPreview: overrides.isPreview ?? false,
+  isUploading: overrides.isUploading ?? false,
+  isProcessingOCR: overrides.isProcessingOCR ?? false,
+  isRendering: overrides.isRendering ?? false,
+  isRenderingPreview: overrides.isRenderingPreview ?? false,
+  status: overrides.status ?? null,
+});
+
+const serializeQueue = (queue: QueueItem[]): StoredQueueItem[] =>
+  queue.map((item) => ({
+    id: item.id,
+    sourceName: item.sourceName,
+    filename: item.filename,
+    imagePath: item.imagePath,
+    words: item.words,
+    selectedWords: item.selectedWords,
+    backgroundColor: item.backgroundColor,
+    imageWidth: item.imageWidth,
+    imageHeight: item.imageHeight,
+    settings: item.settings,
+    videoPath: item.videoPath,
+    renderTime: item.renderTime,
+    isPreview: item.isPreview,
+  }));
+
+const hydrateQueue = (stored: StoredQueueItem[]): QueueItem[] =>
+  stored.map((item) =>
+    createQueueItem({
+      ...item,
+      id: item.id,
+      sourceName: item.sourceName,
+      isUploading: false,
+      isProcessingOCR: false,
+      isRendering: false,
+      isRenderingPreview: false,
+      status: null,
+    })
   );
-  const [blurredBackground, setBlurredBackground] = useState(false);
-  const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
-  const [enterAnimation, setEnterAnimation] = useState<EnterAnimation>("blur");
-  const [exitAnimation, setExitAnimation] = useState<ExitAnimation>("none");
-  const [vcrEffect, setVcrEffect] = useState(false);
-  const [attributionText, setAttributionText] = useState("");
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
-  const [isRendering, setIsRendering] = useState(false);
-  const [renderTime, setRenderTime] = useState<number | null>(null);
-  const [status, setStatus] = useState<Status>(null);
+const loadQueue = (): QueueItem[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as StoredQueueItem[];
+    if (!Array.isArray(parsed)) return [];
+    return hydrateQueue(parsed);
+  } catch {
+    return [];
+  }
+};
 
-  // Update favicon based on render state
-  useFavicon(isRendering, !!videoPath);
-
-  // Get appropriate colors based on mode and background brightness
-  const isDark = isDarkBackground(backgroundColor);
-  const availableColors =
-    markingMode === "highlight"
-      ? getHighlightColors(backgroundColor)
-      : getCircleColors(backgroundColor); // circle and underline use same pen colors
-  const selectedColor =
-    availableColors[colorIndex]?.value ?? availableColors[0].value;
-
-  const handleUpload = useCallback(async (file: File) => {
-    setIsUploading(true);
-    setStatus({ type: "info", message: "Uploading image..." });
-
-    try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const uploadData: UploadResponse = await uploadRes.json();
-      setFilename(uploadData.filename);
-      setImagePath(uploadData.path);
-      setSelectedWords([]);
-      setVideoPath(null);
-
-      // Run OCR
-      setIsProcessingOCR(true);
-      setStatus({ type: "info", message: "Processing image with OCR..." });
-
-      const ocrRes = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: uploadData.filename }),
-      });
-
-      if (!ocrRes.ok) {
-        throw new Error("OCR processing failed");
-      }
-
-      const ocrData: OCRResult = await ocrRes.json();
-      setWords(ocrData.words);
-      setBackgroundColor(ocrData.backgroundColor);
-      setImageWidth(ocrData.imageWidth);
-      setImageHeight(ocrData.imageHeight);
-
-      const imageIsDark = isDarkBackground(ocrData.backgroundColor);
-      setStatus({
-        type: "success",
-        message: `Found ${ocrData.words.length} words. ${imageIsDark ? "Dark" : "Light"} image detected.`,
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      setStatus({
-        type: "error",
-        message: error instanceof Error ? error.message : "An error occurred",
-      });
-    } finally {
-      setIsUploading(false);
-      setIsProcessingOCR(false);
+const runWithConcurrency = async <T,>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> => {
+  if (items.length === 0) return;
+  let index = 0;
+  const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (index < items.length) {
+      const currentIndex = index;
+      index += 1;
+      await worker(items[currentIndex]);
     }
-  }, []);
+  });
+  await Promise.all(runners);
+};
 
-  // Handle paste events for clipboard images
+function App() {
+  const [queue, setQueue] = useState<QueueItem[]>(() => loadQueue());
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const queueRef = useRef(queue);
+
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeQueue(queue)));
+  }, [queue]);
+
+  useEffect(() => {
+    if (activeItemId && queue.some((item) => item.id === activeItemId)) return;
+    setActiveItemId(queue[0]?.id ?? null);
+  }, [queue, activeItemId]);
+
+  const isAnyRendering = queue.some((item) => item.isRendering);
+  const hasAnyVideo = queue.some((item) => item.videoPath);
+  const hasRenderableItems = queue.some(
+    (item) => item.filename && item.selectedWords.length > 0
+  );
+
+  useFavicon(isAnyRendering, hasAnyVideo);
+
+  const updateItem = useCallback(
+    (id: string, updater: (item: QueueItem) => QueueItem) => {
+      setQueue((prev) => prev.map((item) => (item.id === id ? updater(item) : item)));
+    },
+    []
+  );
+
+  const handleUpload = useCallback(
+    async (files: File[]) => {
+      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+      if (imageFiles.length === 0) return;
+
+      const entries = imageFiles.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+      }));
+
+      setQueue((prev) => [
+        ...prev,
+        ...entries.map(({ id, file }) =>
+          createQueueItem({
+            id,
+            sourceName: file.name,
+            isUploading: true,
+            status: { type: "info", message: "Uploading image..." },
+          })
+        ),
+      ]);
+
+      await runWithConcurrency(entries, MAX_UPLOAD_CONCURRENCY, async ({ id, file }) => {
+        updateItem(id, (item) => ({
+          ...item,
+          isUploading: true,
+          status: { type: "info", message: "Uploading image..." },
+        }));
+
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error("Upload failed");
+          }
+
+          const uploadData: UploadResponse = await uploadRes.json();
+
+          updateItem(id, (item) => ({
+            ...item,
+            filename: uploadData.filename,
+            imagePath: uploadData.path,
+            selectedWords: [],
+            videoPath: null,
+            renderTime: null,
+            isPreview: false,
+            isUploading: false,
+            isProcessingOCR: true,
+            status: { type: "info", message: "Processing image with OCR..." },
+          }));
+
+          const ocrRes = await fetch("/api/ocr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: uploadData.filename }),
+          });
+
+          if (!ocrRes.ok) {
+            throw new Error("OCR processing failed");
+          }
+
+          const ocrData: OCRResult = await ocrRes.json();
+
+          updateItem(id, (item) => ({
+            ...item,
+            words: ocrData.words,
+            backgroundColor: ocrData.backgroundColor,
+            imageWidth: ocrData.imageWidth,
+            imageHeight: ocrData.imageHeight,
+            isProcessingOCR: false,
+            status: {
+              type: "success",
+              message: `Found ${ocrData.words.length} words. ${isDarkBackground(ocrData.backgroundColor) ? "Dark" : "Light"} image detected.`,
+            },
+          }));
+        } catch (error) {
+          updateItem(id, (item) => ({
+            ...item,
+            isUploading: false,
+            isProcessingOCR: false,
+            status: {
+              type: "error",
+              message: error instanceof Error ? error.message : "Upload failed",
+            },
+          }));
+        }
+      });
+    },
+    [updateItem]
+  );
+
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -146,7 +331,7 @@ function App() {
           e.preventDefault();
           const file = item.getAsFile();
           if (file) {
-            handleUpload(file);
+            handleUpload([file]);
           }
           break;
         }
@@ -157,93 +342,172 @@ function App() {
     return () => document.removeEventListener("paste", handlePaste);
   }, [handleUpload]);
 
-  const handleRender = useCallback(async () => {
-    if (!filename || selectedWords.length === 0) return;
+  const getItemColors = useCallback((item: QueueItem) => {
+    const availableColors =
+      item.settings.markingMode === "highlight" || item.settings.markingMode === "unblur"
+        ? getHighlightColors(item.backgroundColor)
+        : getCircleColors(item.backgroundColor);
+    const colorIndex = Math.min(item.settings.colorIndex, availableColors.length - 1);
+    const selectedColor = availableColors[colorIndex]?.value ?? availableColors[0].value;
+    return { availableColors, colorIndex, selectedColor };
+  }, []);
 
-    setIsRendering(true);
-    setRenderTime(null);
-    setStatus({
-      type: "info",
-      message: "Rendering video... This may take a moment.",
-    });
+  const renderItem = useCallback(
+    async (itemId: string, previewSeconds?: number) => {
+      const item = queueRef.current.find((entry) => entry.id === itemId);
+      if (!item || !item.filename || item.selectedWords.length === 0) return;
 
-    const startTime = Date.now();
-    try {
-      const res = await fetch("/api/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename,
-          selectedWords,
-          backgroundColor,
-          imageWidth,
-          imageHeight,
-          highlightColor: selectedColor,
-          markingMode,
-          leadInSeconds,
-          charsPerSecond,
-          leadOutSeconds,
-          blurredBackground,
-          cameraMovement,
-          enterAnimation,
-          exitAnimation,
-          vcrEffect,
-          attributionText,
-        }),
-      });
+      const { selectedColor } = getItemColors(item);
 
-      if (!res.ok) {
-        throw new Error("Render failed");
+      updateItem(itemId, (current) => ({
+        ...current,
+        isRendering: true,
+        isRenderingPreview: Boolean(previewSeconds),
+        renderTime: null,
+        status: {
+          type: "info",
+          message: previewSeconds
+            ? "Rendering preview... This may take a moment."
+            : "Rendering video... This may take a moment.",
+        },
+      }));
+
+      const startTime = Date.now();
+      try {
+        const res = await fetch("/api/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: item.filename,
+            selectedWords: item.selectedWords,
+            backgroundColor: item.backgroundColor,
+            imageWidth: item.imageWidth,
+            imageHeight: item.imageHeight,
+            highlightColor: selectedColor,
+            markingMode: item.settings.markingMode,
+            leadInSeconds: item.settings.leadInSeconds,
+            charsPerSecond: item.settings.charsPerSecond,
+            leadOutSeconds: item.settings.leadOutSeconds,
+            blurredBackground: item.settings.blurredBackground,
+            cameraMovement: item.settings.cameraMovement,
+            enterAnimation: item.settings.enterAnimation,
+            exitAnimation: item.settings.exitAnimation,
+            vcrEffect: item.settings.vcrEffect,
+            unblurSeconds: item.settings.unblurSeconds,
+            attributionText: item.settings.attributionText,
+            previewSeconds: previewSeconds ?? 0,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Render failed");
+        }
+
+        const data: RenderResponse = await res.json();
+        updateItem(itemId, (current) => ({
+          ...current,
+          videoPath: data.videoPath,
+          renderTime: Date.now() - startTime,
+          isPreview: Boolean(previewSeconds),
+          status: {
+            type: "success",
+            message: previewSeconds
+              ? "Preview rendered successfully!"
+              : "Video rendered successfully!",
+          },
+        }));
+      } catch (error) {
+        updateItem(itemId, (current) => ({
+          ...current,
+          status: {
+            type: "error",
+            message: error instanceof Error ? error.message : "Render failed",
+          },
+        }));
+      } finally {
+        updateItem(itemId, (current) => ({
+          ...current,
+          isRendering: false,
+          isRenderingPreview: false,
+        }));
       }
+    },
+    [getItemColors, updateItem]
+  );
 
-      const data: RenderResponse = await res.json();
-      setVideoPath(data.videoPath);
-      setRenderTime(Date.now() - startTime);
-      setStatus({ type: "success", message: "Video rendered successfully!" });
-    } catch (error) {
-      console.error("Render error:", error);
-      setStatus({
-        type: "error",
-        message: error instanceof Error ? error.message : "Render failed",
+  const renderAll = useCallback(
+    async (previewSeconds?: number) => {
+      const itemsToRender = queueRef.current.filter(
+        (item) => item.filename && item.selectedWords.length > 0 && !item.isRendering
+      );
+      await runWithConcurrency(itemsToRender, MAX_RENDER_CONCURRENCY, async (item) => {
+        await renderItem(item.id, previewSeconds);
       });
-    } finally {
-      setIsRendering(false);
-    }
-  }, [
-    filename,
-    selectedWords,
-    backgroundColor,
-    imageWidth,
-    imageHeight,
-    selectedColor,
-    markingMode,
-    leadInSeconds,
-    charsPerSecond,
-    leadOutSeconds,
-    blurredBackground,
-    cameraMovement,
-    enterAnimation,
-    exitAnimation,
-    vcrEffect,
-    attributionText,
-  ]);
+    },
+    [renderItem]
+  );
 
-  // Handle keyboard shortcuts
+  const removeItem = useCallback(
+    (id: string) => {
+      setQueue((prev) => prev.filter((item) => item.id !== id));
+      setActiveItemId((prev) => (prev === id ? null : prev));
+    },
+    []
+  );
+
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+    setActiveItemId(null);
+  }, []);
+
+  const updateItemSettings = useCallback(
+    (id: string, partial: Partial<ItemSettings>) => {
+      updateItem(id, (item) => ({
+        ...item,
+        settings: {
+          ...item.settings,
+          ...partial,
+        },
+      }));
+    },
+    [updateItem]
+  );
+
+  const getProgressState = useCallback((item: QueueItem) => {
+    if (item.isUploading) {
+      return { label: "Uploading", detail: "Uploading image", value: 20 };
+    }
+    if (item.isProcessingOCR) {
+      return { label: "OCR", detail: "Processing text", value: 45 };
+    }
+    if (item.isRendering) {
+      return {
+        label: item.isRenderingPreview ? "Preview" : "Rendering",
+        detail: item.isRenderingPreview ? "Rendering preview" : "Rendering video",
+        value: 80,
+      };
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+Enter to render
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        if (selectedWords.length > 0 && !isRendering) {
-          e.preventDefault();
-          handleRender();
+        if (activeItemId) {
+          const item = queueRef.current.find((entry) => entry.id === activeItemId);
+          if (item && item.selectedWords.length > 0 && !item.isRendering) {
+            e.preventDefault();
+            renderItem(activeItemId);
+          }
         }
       }
-      // Cmd+S to download video
+
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-        if (videoPath) {
+        const item = queueRef.current.find((entry) => entry.id === activeItemId);
+        if (item?.videoPath) {
           e.preventDefault();
           const link = document.createElement("a");
-          link.href = videoPath;
+          link.href = item.videoPath;
           link.download = "";
           link.click();
         }
@@ -252,11 +516,9 @@ function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedWords.length, isRendering, handleRender, videoPath]);
+  }, [activeItemId, renderItem]);
 
-  const handleClearSelection = useCallback(() => {
-    setSelectedWords([]);
-  }, []);
+  const isUploadingAny = queue.some((item) => item.isUploading);
 
   return (
     <div className="app">
@@ -264,31 +526,110 @@ function App() {
         <div className="app-logo">✦</div>
         <h1>B-Roll Highlights</h1>
       </header>
+      <ImageUploader onUpload={handleUpload} isUploading={isUploadingAny} />
 
-      {!imagePath ? (
-        <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
+      {queue.length > 0 && (
+        <div className="queue-toolbar">
+          <button
+            className="btn btn-primary"
+            onClick={() => renderAll()}
+            disabled={!hasRenderableItems}
+          >
+            Render All
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => renderAll(PREVIEW_SECONDS)}
+            disabled={!hasRenderableItems}
+          >
+            Render All Previews ({PREVIEW_SECONDS}s)
+          </button>
+          <button className="btn btn-ghost" onClick={clearQueue}>
+            Clear Queue
+          </button>
+        </div>
+      )}
+
+      {queue.length === 0 ? (
+        <div className="empty-state">Upload images to start building your queue.</div>
       ) : (
-        <div className="container">
-          <div>
-            {isProcessingOCR ? (
-              <div className="loading">
-                <div className="spinner" />
-                <span>Processing image with OCR...</span>
-              </div>
-            ) : (
-              <>
-                <WordSelector
-                  imageSrc={imagePath}
-                  words={words}
-                  selectedWords={selectedWords}
-                  onSelectionChange={setSelectedWords}
-                  imageWidth={imageWidth}
-                  imageHeight={imageHeight}
-                  markingMode={markingMode}
-                  highlightColor={selectedColor}
-                />
+        <div className="queue-grid">
+          {queue.map((item, index) => {
+            const { availableColors, colorIndex, selectedColor } = getItemColors(item);
+            const progressState = getProgressState(item);
+
+            return (
+              <div
+                key={item.id}
+                className={`queue-card${activeItemId === item.id ? " active" : ""}`}
+                onClick={() => setActiveItemId(item.id)}
+              >
+                <div className="queue-card-header">
+                  <div>
+                    <h2 className="queue-card-title">
+                      {item.sourceName || `Image ${index + 1}`}
+                    </h2>
+                    <div className="queue-card-meta">
+                      {item.words.length} words · {item.selectedWords.length} selected
+                    </div>
+                  </div>
+                  <div className="queue-card-actions">
+                    <button
+                      className="btn-ghost"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeItem(item.id);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                {progressState && (
+                  <div className="progress-panel">
+                    <div className="progress-panel-header">
+                      <span className="progress-panel-label">{progressState.label}</span>
+                      <span className="progress-panel-value">{progressState.detail}</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${progressState.value}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {item.isUploading || item.isProcessingOCR ? (
+                  <div className="loading">
+                    <div className="spinner" />
+                    <span>
+                      {item.isUploading
+                        ? "Uploading image..."
+                        : "Processing image with OCR..."}
+                    </span>
+                  </div>
+                ) : item.imagePath ? (
+                  <WordSelector
+                    imageSrc={item.imagePath}
+                    words={item.words}
+                    selectedWords={item.selectedWords}
+                    onSelectionChange={(words) =>
+                      updateItem(item.id, (current) => ({
+                        ...current,
+                        selectedWords: words,
+                      }))
+                    }
+                    imageWidth={item.imageWidth}
+                    imageHeight={item.imageHeight}
+                    markingMode={item.settings.markingMode}
+                    highlightColor={selectedColor}
+                  />
+                ) : null}
+
                 <div className="settings-panel">
-                  {/* Style Section */}
                   <div className="settings-section">
                     <h3 className="settings-section-title">Style</h3>
                     <div className="settings-row">
@@ -296,40 +637,70 @@ function App() {
                         <span className="setting-label">Mode</span>
                         <div className="mode-toggle">
                           <button
-                            className={`mode-btn ${markingMode === "highlight" ? "active" : ""}`}
-                            onClick={() => {
-                              setMarkingMode("highlight");
-                              setColorIndex(0);
-                            }}
+                            className={`mode-btn ${
+                              item.settings.markingMode === "highlight" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              updateItemSettings(item.id, {
+                                markingMode: "highlight",
+                                colorIndex: 0,
+                              })
+                            }
                           >
                             <span className="mode-icon">◼</span>
                             Highlight
                           </button>
                           <button
-                            className={`mode-btn ${markingMode === "circle" ? "active" : ""}`}
-                            onClick={() => {
-                              setMarkingMode("circle");
-                              setColorIndex(0);
-                            }}
+                            className={`mode-btn ${
+                              item.settings.markingMode === "circle" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              updateItemSettings(item.id, {
+                                markingMode: "circle",
+                                colorIndex: 0,
+                              })
+                            }
                           >
                             <span className="mode-icon">○</span>
                             Circle
                           </button>
                           <button
-                            className={`mode-btn ${markingMode === "underline" ? "active" : ""}`}
-                            onClick={() => {
-                              setMarkingMode("underline");
-                              setColorIndex(0);
-                            }}
+                            className={`mode-btn ${
+                              item.settings.markingMode === "underline" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              updateItemSettings(item.id, {
+                                markingMode: "underline",
+                                colorIndex: 0,
+                              })
+                            }
                           >
                             <span className="mode-icon">_</span>
                             Underline
                           </button>
+                          <button
+                            className={`mode-btn ${
+                              item.settings.markingMode === "unblur" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              updateItemSettings(item.id, {
+                                markingMode: "unblur",
+                                colorIndex: 0,
+                              })
+                            }
+                          >
+                            <span className="mode-icon">◧</span>
+                            Unblur
+                          </button>
                         </div>
                       </div>
                       <div className="setting-group">
-                        <label className="setting-label" htmlFor="color-select">
-                          {markingMode === "highlight" ? "Highlight" : "Pen"} Color
+                        <label className="setting-label" htmlFor={`color-select-${item.id}`}>
+                          {item.settings.markingMode === "highlight" ||
+                          item.settings.markingMode === "unblur"
+                            ? "Highlight"
+                            : "Pen"}{" "}
+                          Color
                         </label>
                         <div className="color-select-wrapper">
                           <span
@@ -337,14 +708,16 @@ function App() {
                             style={{ backgroundColor: selectedColor }}
                           />
                           <select
-                            id="color-select"
+                            id={`color-select-${item.id}`}
                             value={colorIndex}
                             onChange={(e) =>
-                              setColorIndex(parseInt(e.target.value, 10))
+                              updateItemSettings(item.id, {
+                                colorIndex: parseInt(e.target.value, 10),
+                              })
                             }
                           >
-                            {availableColors.map((color, index) => (
-                              <option key={color.name} value={index}>
+                            {availableColors.map((color, indexValue) => (
+                              <option key={color.name} value={indexValue}>
                                 {color.name}
                               </option>
                             ))}
@@ -354,76 +727,113 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Timing Section */}
                   <div className="settings-section">
                     <h3 className="settings-section-title">Timing</h3>
                     <div className="settings-grid">
                       <div className="slider-control">
                         <div className="slider-header">
                           <span className="slider-label">Lead In</span>
-                          <span className="slider-value">{leadInSeconds}s</span>
+                          <span className="slider-value">
+                            {item.settings.leadInSeconds}s
+                          </span>
                         </div>
                         <input
                           type="range"
-                          id="lead-in"
+                          id={`lead-in-${item.id}`}
                           min={MIN_LEAD_SECONDS}
                           max={MAX_LEAD_SECONDS}
                           step={0.5}
-                          value={leadInSeconds}
+                          value={item.settings.leadInSeconds}
                           onChange={(e) =>
-                            setLeadInSeconds(parseFloat(e.target.value))
+                            updateItemSettings(item.id, {
+                              leadInSeconds: parseFloat(e.target.value),
+                            })
                           }
                         />
                       </div>
                       <div className="slider-control">
                         <div className="slider-header">
                           <span className="slider-label">Speed</span>
-                          <span className="slider-value">{charsPerSecond} chr/s</span>
+                          <span className="slider-value">
+                            {item.settings.charsPerSecond} chr/s
+                          </span>
                         </div>
                         <input
                           type="range"
-                          id="chars-per-second"
+                          id={`chars-per-second-${item.id}`}
                           min={MIN_CHARS_PER_SECOND}
                           max={MAX_CHARS_PER_SECOND}
                           step={1}
-                          value={charsPerSecond}
+                          value={item.settings.charsPerSecond}
                           onChange={(e) =>
-                            setCharsPerSecond(parseInt(e.target.value, 10))
+                            updateItemSettings(item.id, {
+                              charsPerSecond: parseInt(e.target.value, 10),
+                            })
                           }
                         />
                       </div>
                       <div className="slider-control">
                         <div className="slider-header">
                           <span className="slider-label">Lead Out</span>
-                          <span className="slider-value">{leadOutSeconds}s</span>
+                          <span className="slider-value">
+                            {item.settings.leadOutSeconds}s
+                          </span>
                         </div>
                         <input
                           type="range"
-                          id="lead-out"
+                          id={`lead-out-${item.id}`}
                           min={MIN_LEAD_SECONDS}
                           max={MAX_LEAD_SECONDS}
                           step={0.5}
-                          value={leadOutSeconds}
+                          value={item.settings.leadOutSeconds}
                           onChange={(e) =>
-                            setLeadOutSeconds(parseFloat(e.target.value))
+                            updateItemSettings(item.id, {
+                              leadOutSeconds: parseFloat(e.target.value),
+                            })
                           }
                         />
                       </div>
+                      {item.settings.markingMode === "unblur" && (
+                        <div className="slider-control">
+                          <div className="slider-header">
+                            <span className="slider-label">Unblur</span>
+                            <span className="slider-value">
+                              {item.settings.unblurSeconds}s
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            id={`unblur-duration-${item.id}`}
+                            min={MIN_UNBLUR_SECONDS}
+                            max={MAX_UNBLUR_SECONDS}
+                            step={0.1}
+                            value={item.settings.unblurSeconds}
+                            onChange={(e) =>
+                              updateItemSettings(item.id, {
+                                unblurSeconds: parseFloat(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Effects Section */}
                   <div className="settings-section">
                     <h3 className="settings-section-title">Effects</h3>
                     <div className="settings-row">
                       <div className="setting-group">
-                        <label className="setting-label" htmlFor="camera-movement">Camera</label>
+                        <label className="setting-label" htmlFor={`camera-${item.id}`}>
+                          Camera
+                        </label>
                         <select
-                          id="camera-movement"
+                          id={`camera-${item.id}`}
                           className="select-input"
-                          value={cameraMovement}
+                          value={item.settings.cameraMovement}
                           onChange={(e) =>
-                            setCameraMovement(e.target.value as CameraMovement)
+                            updateItemSettings(item.id, {
+                              cameraMovement: e.target.value as CameraMovement,
+                            })
                           }
                         >
                           <option value="left-right">Left → Right</option>
@@ -436,13 +846,17 @@ function App() {
                         </select>
                       </div>
                       <div className="setting-group">
-                        <label className="setting-label" htmlFor="enter-animation">Enter</label>
+                        <label className="setting-label" htmlFor={`enter-${item.id}`}>
+                          Enter
+                        </label>
                         <select
-                          id="enter-animation"
+                          id={`enter-${item.id}`}
                           className="select-input"
-                          value={enterAnimation}
+                          value={item.settings.enterAnimation}
                           onChange={(e) =>
-                            setEnterAnimation(e.target.value as EnterAnimation)
+                            updateItemSettings(item.id, {
+                              enterAnimation: e.target.value as EnterAnimation,
+                            })
                           }
                         >
                           <option value="blur">Blur</option>
@@ -454,13 +868,17 @@ function App() {
                         </select>
                       </div>
                       <div className="setting-group">
-                        <label className="setting-label" htmlFor="exit-animation">Exit</label>
+                        <label className="setting-label" htmlFor={`exit-${item.id}`}>
+                          Exit
+                        </label>
                         <select
-                          id="exit-animation"
+                          id={`exit-${item.id}`}
                           className="select-input"
-                          value={exitAnimation}
+                          value={item.settings.exitAnimation}
                           onChange={(e) =>
-                            setExitAnimation(e.target.value as ExitAnimation)
+                            updateItemSettings(item.id, {
+                              exitAnimation: e.target.value as ExitAnimation,
+                            })
                           }
                         >
                           <option value="blur">Blur</option>
@@ -476,8 +894,12 @@ function App() {
                         <label className="toggle-switch">
                           <input
                             type="checkbox"
-                            checked={blurredBackground}
-                            onChange={(e) => setBlurredBackground(e.target.checked)}
+                            checked={item.settings.blurredBackground}
+                            onChange={(e) =>
+                              updateItemSettings(item.id, {
+                                blurredBackground: e.target.checked,
+                              })
+                            }
                           />
                           <span className="toggle-slider"></span>
                           <span className="toggle-label">Blurred BG</span>
@@ -488,87 +910,89 @@ function App() {
                         <label className="toggle-switch">
                           <input
                             type="checkbox"
-                            checked={vcrEffect}
-                            onChange={(e) => setVcrEffect(e.target.checked)}
+                            checked={item.settings.vcrEffect}
+                            onChange={(e) =>
+                              updateItemSettings(item.id, {
+                                vcrEffect: e.target.checked,
+                              })
+                            }
                           />
                           <span className="toggle-slider"></span>
                           <span className="toggle-label">VCR Effect</span>
                         </label>
                       </div>
-                                          </div>
+                    </div>
                   </div>
 
-                  {/* Attribution Section */}
                   <div className="settings-section">
                     <h3 className="settings-section-title">Attribution</h3>
                     <div className="settings-row">
                       <div className="setting-group" style={{ flex: 1 }}>
-                        <label className="setting-label" htmlFor="attribution-text">Lower Third Text</label>
+                        <label className="setting-label" htmlFor={`attribution-${item.id}`}>
+                          Lower Third Text
+                        </label>
                         <input
                           type="text"
-                          id="attribution-text"
+                          id={`attribution-${item.id}`}
                           className="text-input"
                           placeholder="e.g., via @username or Source: example.com"
-                          value={attributionText}
-                          onChange={(e) => setAttributionText(e.target.value)}
+                          value={item.settings.attributionText}
+                          onChange={(e) =>
+                            updateItemSettings(item.id, {
+                              attributionText: e.target.value,
+                            })
+                          }
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="settings-actions">
                     <button
                       className="btn btn-primary btn-generate"
-                      onClick={handleRender}
-                      disabled={selectedWords.length === 0 || isRendering}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        renderItem(item.id);
+                      }}
+                      disabled={item.selectedWords.length === 0 || item.isRendering}
                     >
-                      {isRendering ? (
+                      {item.isRendering ? (
                         <>
                           <span className="btn-spinner"></span>
                           Rendering...
                         </>
                       ) : (
-                        <>
-                          Generate Video
-                          <span className="keyboard-shortcut">⌘↵</span>
-                        </>
+                        <>Generate Video</>
                       )}
                     </button>
                     <div className="btn-group-secondary">
                       <button
-                        className="btn btn-ghost"
-                        onClick={handleClearSelection}
-                        disabled={selectedWords.length === 0}
-                      >
-                        Clear Selection
-                      </button>
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => {
-                          setFilename(null);
-                          setImagePath(null);
-                          setWords([]);
-                          setSelectedWords([]);
-                          setVideoPath(null);
-                          setStatus(null);
+                        className="btn btn-secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          renderItem(item.id, PREVIEW_SECONDS);
                         }}
+                        disabled={item.selectedWords.length === 0 || item.isRendering}
                       >
-                        New Image
+                        Render Preview ({PREVIEW_SECONDS}s)
                       </button>
                     </div>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
 
-          <div className="preview-column">
-            <VideoPreview videoPath={videoPath} isRendering={isRendering} renderTime={renderTime} />
-            {status && (
-              <div className={`status ${status.type}`}>{status.message}</div>
-            )}
-          </div>
+                <VideoPreview
+                  videoPath={item.videoPath}
+                  isRendering={item.isRendering}
+                  renderTime={item.renderTime}
+                  isPreview={item.isPreview}
+                />
+
+                {item.status && (
+                  <div className={`status ${item.status.type}`}>{item.status.message}</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
