@@ -6,7 +6,8 @@ import {
   interpolate,
   staticFile,
 } from "remotion";
-import type { HighlightProps, MarkingMode, CameraMovement, BlurMode } from "../src/types";
+import type { HighlightProps, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation } from "../src/types";
+import { Easing } from "remotion";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -37,7 +38,8 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
     blurredBackground = false,
     cameraMovement = "left-right" as CameraMovement,
-    blurMode = "blur-in" as BlurMode,
+    enterAnimation = "blur" as EnterAnimation,
+    exitAnimation = "none" as ExitAnimation,
     vcrEffect = false,
     attributionText = "",
   } = typedProps;
@@ -48,44 +50,169 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   // Calculate timing based on lead-in/lead-out
   const leadInFrames = Math.round(leadInSeconds * FPS);
 
-  // Calculate blur based on blur mode
-  const calculateBlur = (): number => {
-    const maxBlur = 20;
-    const blurDuration = 30; // frames for blur transition
+  // Animation duration in frames
+  const animationDuration = 30;
+  const slideDistance = 150; // pixels to slide
 
-    switch (blurMode) {
-      case "blur-in":
-        return interpolate(frame, [0, blurDuration], [maxBlur, 0], {
-          extrapolateRight: "clamp",
-        });
-      case "blur-out":
-        return interpolate(
-          frame,
-          [durationInFrames - blurDuration, durationInFrames],
-          [0, maxBlur],
-          { extrapolateLeft: "clamp" }
-        );
-      case "blur-in-out":
-        if (frame < blurDuration) {
-          return interpolate(frame, [0, blurDuration], [maxBlur, 0], {
+  // Calculate enter animation values
+  const calculateEnterAnimation = (): { blur: number; translateX: number; translateY: number; opacity: number } => {
+    const maxBlur = 20;
+
+    switch (enterAnimation) {
+      case "blur":
+        return {
+          blur: interpolate(frame, [0, animationDuration], [maxBlur, 0], {
             extrapolateRight: "clamp",
-          });
-        } else if (frame > durationInFrames - blurDuration) {
-          return interpolate(
-            frame,
-            [durationInFrames - blurDuration, durationInFrames],
-            [0, maxBlur],
-            { extrapolateLeft: "clamp" }
-          );
-        }
-        return 0;
+            easing: Easing.out(Easing.cubic),
+          }),
+          translateX: 0,
+          translateY: 0,
+          opacity: 1,
+        };
+      case "from-bottom":
+        return {
+          blur: 0,
+          translateX: 0,
+          translateY: interpolate(frame, [0, animationDuration], [slideDistance, 0], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+          opacity: interpolate(frame, [0, animationDuration], [0, 1], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+        };
+      case "from-top":
+        return {
+          blur: 0,
+          translateX: 0,
+          translateY: interpolate(frame, [0, animationDuration], [-slideDistance, 0], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+          opacity: interpolate(frame, [0, animationDuration], [0, 1], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+        };
+      case "from-left":
+        return {
+          blur: 0,
+          translateX: interpolate(frame, [0, animationDuration], [-slideDistance, 0], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+          translateY: 0,
+          opacity: interpolate(frame, [0, animationDuration], [0, 1], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+        };
+      case "from-right":
+        return {
+          blur: 0,
+          translateX: interpolate(frame, [0, animationDuration], [slideDistance, 0], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+          translateY: 0,
+          opacity: interpolate(frame, [0, animationDuration], [0, 1], {
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          }),
+        };
       case "none":
       default:
-        return 0;
+        return { blur: 0, translateX: 0, translateY: 0, opacity: 1 };
     }
   };
 
-  const blur = calculateBlur();
+  // Calculate exit animation values
+  const calculateExitAnimation = (): { blur: number; translateX: number; translateY: number; opacity: number } => {
+    const maxBlur = 20;
+    // For slide animations, we have a 15 frame buffer at the end, so animation should end 15 frames early
+    const isSlideExit = exitAnimation !== "blur" && exitAnimation !== "none";
+    const exitBuffer = isSlideExit ? 15 : 0;
+    const exitEnd = durationInFrames - exitBuffer;
+    const exitStart = exitEnd - animationDuration;
+
+    switch (exitAnimation) {
+      case "blur":
+        return {
+          blur: interpolate(frame, [exitStart, exitEnd], [0, maxBlur], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+          translateX: 0,
+          translateY: 0,
+          opacity: 1,
+        };
+      case "to-bottom":
+        return {
+          blur: 0,
+          translateX: 0,
+          translateY: interpolate(frame, [exitStart, exitEnd], [0, slideDistance], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+          opacity: interpolate(frame, [exitStart, exitEnd], [1, 0], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+        };
+      case "to-top":
+        return {
+          blur: 0,
+          translateX: 0,
+          translateY: interpolate(frame, [exitStart, exitEnd], [0, -slideDistance], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+          opacity: interpolate(frame, [exitStart, exitEnd], [1, 0], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+        };
+      case "to-left":
+        return {
+          blur: 0,
+          translateX: interpolate(frame, [exitStart, exitEnd], [0, -slideDistance], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+          translateY: 0,
+          opacity: interpolate(frame, [exitStart, exitEnd], [1, 0], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+        };
+      case "to-right":
+        return {
+          blur: 0,
+          translateX: interpolate(frame, [exitStart, exitEnd], [0, slideDistance], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+          translateY: 0,
+          opacity: interpolate(frame, [exitStart, exitEnd], [1, 0], {
+            extrapolateLeft: "clamp",
+            easing: Easing.in(Easing.cubic),
+          }),
+        };
+      case "none":
+      default:
+        return { blur: 0, translateX: 0, translateY: 0, opacity: 1 };
+    }
+  };
+
+  const enterAnim = calculateEnterAnimation();
+  const exitAnim = calculateExitAnimation();
+
+  // Combine enter and exit animations
+  const blur = enterAnim.blur + exitAnim.blur;
+  const translateX = enterAnim.translateX + exitAnim.translateX;
+  const translateY = enterAnim.translateY + exitAnim.translateY;
+  const opacity = Math.min(enterAnim.opacity, exitAnim.opacity);
 
   // Calculate camera movement based on setting
   const calculateCameraTransform = (): {
@@ -264,8 +391,9 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
 
       <div
         style={{
-          transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`,
-          filter: `blur(${blur}px)`,
+          transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+          filter: blur > 0 ? `blur(${blur}px)` : "none",
+          opacity,
           position: "relative",
           width: displayWidth,
           height: displayHeight,

@@ -75,8 +75,11 @@ export type CameraMovement =
   | "zoom-out"
   | "none";
 
-// Blur effect options
-export type BlurMode = "blur-in" | "blur-out" | "blur-in-out" | "none";
+// Enter animation options
+export type EnterAnimation = "blur" | "from-bottom" | "from-top" | "from-left" | "from-right" | "none";
+
+// Exit animation options
+export type ExitAnimation = "blur" | "to-bottom" | "to-top" | "to-left" | "to-right" | "none";
 
 export interface HighlightProps {
   imageSrc: string;
@@ -91,7 +94,8 @@ export interface HighlightProps {
   charsPerSecond: number;
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
-  blurMode: BlurMode;
+  enterAnimation: EnterAnimation;
+  exitAnimation: ExitAnimation;
   vcrEffect: boolean;
   attributionText: string;
 }

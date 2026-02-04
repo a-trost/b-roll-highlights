@@ -10,7 +10,8 @@ import type {
   RenderResponse,
   MarkingMode,
   CameraMovement,
-  BlurMode,
+  EnterAnimation,
+  ExitAnimation,
 } from "./types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
@@ -51,7 +52,8 @@ function App() {
   );
   const [blurredBackground, setBlurredBackground] = useState(false);
   const [cameraMovement, setCameraMovement] = useState<CameraMovement>("left-right");
-  const [blurMode, setBlurMode] = useState<BlurMode>("blur-in");
+  const [enterAnimation, setEnterAnimation] = useState<EnterAnimation>("blur");
+  const [exitAnimation, setExitAnimation] = useState<ExitAnimation>("none");
   const [vcrEffect, setVcrEffect] = useState(false);
   const [attributionText, setAttributionText] = useState("");
 
@@ -183,7 +185,8 @@ function App() {
           leadOutSeconds,
           blurredBackground,
           cameraMovement,
-          blurMode,
+          enterAnimation,
+          exitAnimation,
           vcrEffect,
           attributionText,
         }),
@@ -219,7 +222,8 @@ function App() {
     leadOutSeconds,
     blurredBackground,
     cameraMovement,
-    blurMode,
+    enterAnimation,
+    exitAnimation,
     vcrEffect,
     attributionText,
   ]);
@@ -432,18 +436,38 @@ function App() {
                         </select>
                       </div>
                       <div className="setting-group">
-                        <label className="setting-label" htmlFor="blur-mode">Blur</label>
+                        <label className="setting-label" htmlFor="enter-animation">Enter</label>
                         <select
-                          id="blur-mode"
+                          id="enter-animation"
                           className="select-input"
-                          value={blurMode}
+                          value={enterAnimation}
                           onChange={(e) =>
-                            setBlurMode(e.target.value as BlurMode)
+                            setEnterAnimation(e.target.value as EnterAnimation)
                           }
                         >
-                          <option value="blur-in">Blur In</option>
-                          <option value="blur-out">Blur Out</option>
-                          <option value="blur-in-out">Blur In & Out</option>
+                          <option value="blur">Blur</option>
+                          <option value="from-bottom">From Bottom</option>
+                          <option value="from-top">From Top</option>
+                          <option value="from-left">From Left</option>
+                          <option value="from-right">From Right</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="exit-animation">Exit</label>
+                        <select
+                          id="exit-animation"
+                          className="select-input"
+                          value={exitAnimation}
+                          onChange={(e) =>
+                            setExitAnimation(e.target.value as ExitAnimation)
+                          }
+                        >
+                          <option value="blur">Blur</option>
+                          <option value="to-bottom">To Bottom</option>
+                          <option value="to-top">To Top</option>
+                          <option value="to-left">To Left</option>
+                          <option value="to-right">To Right</option>
                           <option value="none">None</option>
                         </select>
                       </div>

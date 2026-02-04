@@ -1,5 +1,5 @@
 import { renderHighlightVideo } from '../services/remotionRenderer';
-import type { HighlightProps, WordBox, MarkingMode, CameraMovement, BlurMode } from '../../src/types';
+import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation } from '../../src/types';
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -38,7 +38,8 @@ export async function handleRender(request: Request): Promise<Response> {
       leadOutSeconds,
       blurredBackground,
       cameraMovement,
-      blurMode,
+      enterAnimation,
+      exitAnimation,
       vcrEffect,
       attributionText,
     } = body;
@@ -60,7 +61,8 @@ export async function handleRender(request: Request): Promise<Response> {
       leadOutSeconds: leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS,
       blurredBackground: blurredBackground ?? false,
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
-      blurMode: (blurMode as BlurMode) || 'blur-in',
+      enterAnimation: (enterAnimation as EnterAnimation) || 'blur',
+      exitAnimation: (exitAnimation as ExitAnimation) || 'none',
       vcrEffect: vcrEffect ?? false,
       attributionText: attributionText || '',
     };

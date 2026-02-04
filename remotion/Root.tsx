@@ -54,7 +54,8 @@ export const RemotionRoot: React.FC = () => {
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
           blurredBackground: false,
           cameraMovement: "left-right" as const,
-          blurMode: "blur-in" as const,
+          enterAnimation: "blur" as const,
+          exitAnimation: "none" as const,
           vcrEffect: false,
           attributionText: "",
         }}
@@ -64,16 +65,20 @@ export const RemotionRoot: React.FC = () => {
             typedProps.leadInSeconds ?? DEFAULT_LEAD_IN_SECONDS;
           const leadOutSeconds =
             typedProps.leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS;
+          const exitAnimation = typedProps.exitAnimation ?? "none";
 
-          // Calculate lead-in frames (minimum 30 for blur animation)
+          // Calculate lead-in frames (minimum 30 for animation)
           const leadInFrames = Math.max(30, Math.round(leadInSeconds * FPS));
           const leadOutFrames = Math.round(leadOutSeconds * FPS);
+
+          // Add buffer for slide exit animations so fade completes before video ends
+          const exitBuffer = (exitAnimation !== "blur" && exitAnimation !== "none") ? 15 : 0;
 
           // Estimate highlight animation duration
           const highlightFrames = estimateHighlightDuration(typedProps);
 
-          // Total duration = lead-in + highlight animation + lead-out
-          const totalFrames = leadInFrames + highlightFrames + leadOutFrames;
+          // Total duration = lead-in + highlight animation + lead-out + exit buffer
+          const totalFrames = leadInFrames + highlightFrames + leadOutFrames + exitBuffer;
 
           return {
             durationInFrames: totalFrames,
