@@ -256,7 +256,10 @@ function App() {
 
   return (
     <div className="app">
-      <h1>B-Roll Highlights</h1>
+      <header className="app-header">
+        <div className="app-logo">✦</div>
+        <h1>B-Roll Highlights</h1>
+      </header>
 
       {!imagePath ? (
         <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
