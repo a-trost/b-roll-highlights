@@ -22,6 +22,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   zoomBox,
   onZoomBoxChange,
   imageWidth,
+  imageHeight,
   markingMode,
   highlightColor,
 }) => {
@@ -262,10 +263,18 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   }, [toggleWord, words]);
 
   // Zoom box drawing handlers
+  // Video output is 16:9 (1920x1080), so zoom box must maintain that aspect ratio
+  // in actual pixels, which means adjusting for the source image's aspect ratio
   const calculateZoomBox = useCallback((startX: number, startY: number, endX: number, endY: number): ZoomBox => {
-    // Calculate width from drag, constrain height to 16:9 aspect ratio
+    const imageAspect = imageWidth / imageHeight;
+    const videoAspect = 16 / 9;
+
+    // Calculate width from drag
     let width = Math.abs(endX - startX);
-    let height = width * (9 / 16);
+
+    // Height in normalized coords that gives 16:9 in actual pixels
+    // normalizedHeight = normalizedWidth * imageAspect / videoAspect
+    let height = width * imageAspect / videoAspect;
 
     // Determine origin based on drag direction
     let x = endX >= startX ? startX : startX - width;
@@ -279,15 +288,15 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     if (x + width > 1) width = 1 - x;
     if (y + height > 1) {
       height = 1 - y;
-      width = height * (16 / 9);
+      width = height * videoAspect / imageAspect;
     }
 
     // Minimum size
     width = Math.max(0.05, width);
-    height = width * (9 / 16);
+    height = width * imageAspect / videoAspect;
 
     return { x, y, width, height };
-  }, []);
+  }, [imageWidth, imageHeight]);
 
   const handleZoomPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || markingMode !== 'zoom') return;

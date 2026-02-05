@@ -497,20 +497,38 @@ function App() {
                       onChange={(e) => updateSettings({ leadInSeconds: parseFloat(e.target.value) })}
                     />
                   </div>
-                  <div className="slider-control">
-                    <div className="slider-header">
-                      <span className="slider-label">Speed</span>
-                      <span className="slider-value">{image.settings.charsPerSecond} chr/s</span>
+                  {image.settings.markingMode !== "zoom" && (
+                    <div className="slider-control">
+                      <div className="slider-header">
+                        <span className="slider-label">Speed</span>
+                        <span className="slider-value">{image.settings.charsPerSecond} chr/s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={MIN_CHARS_PER_SECOND}
+                        max={MAX_CHARS_PER_SECOND}
+                        step={1}
+                        value={image.settings.charsPerSecond}
+                        onChange={(e) => updateSettings({ charsPerSecond: parseInt(e.target.value, 10) })}
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min={MIN_CHARS_PER_SECOND}
-                      max={MAX_CHARS_PER_SECOND}
-                      step={1}
-                      value={image.settings.charsPerSecond}
-                      onChange={(e) => updateSettings({ charsPerSecond: parseInt(e.target.value, 10) })}
-                    />
-                  </div>
+                  )}
+                  {image.settings.markingMode === "zoom" && (
+                    <div className="slider-control">
+                      <div className="slider-header">
+                        <span className="slider-label">Zoom Duration</span>
+                        <span className="slider-value">{image.settings.zoomDurationSeconds}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={MIN_ZOOM_DURATION_SECONDS}
+                        max={MAX_ZOOM_DURATION_SECONDS}
+                        step={0.1}
+                        value={image.settings.zoomDurationSeconds}
+                        onChange={(e) => updateSettings({ zoomDurationSeconds: parseFloat(e.target.value) })}
+                      />
+                    </div>
+                  )}
                   <div className="slider-control">
                     <div className="slider-header">
                       <span className="slider-label">Lead Out</span>
@@ -538,22 +556,6 @@ function App() {
                         step={0.1}
                         value={image.settings.unblurSeconds}
                         onChange={(e) => updateSettings({ unblurSeconds: parseFloat(e.target.value) })}
-                      />
-                    </div>
-                  )}
-                  {image.settings.markingMode === "zoom" && (
-                    <div className="slider-control">
-                      <div className="slider-header">
-                        <span className="slider-label">Zoom Duration</span>
-                        <span className="slider-value">{image.settings.zoomDurationSeconds}s</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={MIN_ZOOM_DURATION_SECONDS}
-                        max={MAX_ZOOM_DURATION_SECONDS}
-                        step={0.1}
-                        value={image.settings.zoomDurationSeconds}
-                        onChange={(e) => updateSettings({ zoomDurationSeconds: parseFloat(e.target.value) })}
                       />
                     </div>
                   )}
@@ -648,7 +650,7 @@ function App() {
               <div className="settings-section">
                 <h3 className="settings-section-title">Attribution</h3>
                 <div className="settings-row">
-                  <div className="setting-group" style={{ flex: 1 }}>
+                  <div className="setting-group setting-group-full">
                     <label className="setting-label" htmlFor="attribution-input">
                       Lower Third Text
                     </label>

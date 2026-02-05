@@ -69,14 +69,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       {isUploading ? (
         <div className="loading">
           <div className="spinner" />
-          <span>Uploading images...</span>
+          <span>Uploading...</span>
         </div>
       ) : (
         <>
-          <div className="upload-icon">📷</div>
-          <p>Drag and drop images here</p>
-          <p>paste from clipboard (Ctrl/Cmd+V)</p>
-          <p>or click to select files</p>
+          <div className="upload-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+          <p>Drop an image here, paste from clipboard, or click to browse</p>
         </>
       )}
     </div>

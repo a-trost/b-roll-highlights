@@ -24,7 +24,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   if (isRendering) {
     return (
       <div className="video-preview">
-        <h2>Video Preview</h2>
+        <h2>Preview</h2>
         <div className="loading">
           <div className="spinner" />
           <span>Rendering video... This may take a moment.</span>
@@ -36,10 +36,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   if (!videoPath) {
     return (
       <div className="video-preview">
-        <h2>Video Preview</h2>
+        <h2>Preview</h2>
         <div className="placeholder">
-          <div className="placeholder-icon">🎬</div>
-          <p>Select words and click "Generate Video" to create your highlight video</p>
+          <div className="placeholder-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          <p>Select words and generate to preview your video</p>
         </div>
       </div>
     );
@@ -47,7 +51,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   return (
     <div className="video-preview">
-      <h2>Video Preview</h2>
+      <h2>Preview</h2>
       <video
         key={videoPath}
         controls
