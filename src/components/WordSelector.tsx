@@ -1,11 +1,13 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import type { WordBox, MarkingMode } from '../types';
+import type { WordBox, MarkingMode, ZoomBox } from '../types';
 
 interface WordSelectorProps {
   imageSrc: string;
   words: WordBox[];
   selectedWords: WordBox[];
   onSelectionChange: (words: WordBox[]) => void;
+  zoomBox: ZoomBox | null;
+  onZoomBoxChange: (zoomBox: ZoomBox | null) => void;
   imageWidth: number;
   imageHeight: number;
   markingMode: MarkingMode;
@@ -17,6 +19,8 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   words,
   selectedWords,
   onSelectionChange,
+  zoomBox,
+  onZoomBoxChange,
   imageWidth,
   markingMode,
   highlightColor,
@@ -34,9 +38,18 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     baseSelection: WordBox[];
   }
 
+  interface ZoomDragState {
+    startX: number;  // normalized 0-1
+    startY: number;  // normalized 0-1
+    currentX: number;
+    currentY: number;
+  }
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayScale, setDisplayScale] = useState(1);
   const dragStateRef = useRef<DragState | null>(null);
+  const zoomDragStateRef = useRef<ZoomDragState | null>(null);
+  const [zoomDragPreview, setZoomDragPreview] = useState<ZoomBox | null>(null);
 
   const setDragState = useCallback((next: DragState | null) => {
     dragStateRef.current = next;
@@ -248,15 +261,115 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     };
   }, [toggleWord, words]);
 
+  // Zoom box drawing handlers
+  const calculateZoomBox = useCallback((startX: number, startY: number, endX: number, endY: number): ZoomBox => {
+    // Calculate width from drag, constrain height to 16:9 aspect ratio
+    let width = Math.abs(endX - startX);
+    let height = width * (9 / 16);
+
+    // Determine origin based on drag direction
+    let x = endX >= startX ? startX : startX - width;
+    let y = endY >= startY ? startY : startY - height;
+
+    // Clamp to image bounds
+    x = Math.max(0, Math.min(x, 1 - width));
+    y = Math.max(0, Math.min(y, 1 - height));
+
+    // Ensure box fits within image
+    if (x + width > 1) width = 1 - x;
+    if (y + height > 1) {
+      height = 1 - y;
+      width = height * (16 / 9);
+    }
+
+    // Minimum size
+    width = Math.max(0.05, width);
+    height = width * (9 / 16);
+
+    return { x, y, width, height };
+  }, []);
+
+  const handleZoomPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0 || markingMode !== 'zoom') return;
+    e.preventDefault();
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    zoomDragStateRef.current = {
+      startX: x,
+      startY: y,
+      currentX: x,
+      currentY: y,
+    };
+    setZoomDragPreview(null);
+  }, [markingMode]);
+
+  const handleZoomPointerMove = useCallback((e: React.PointerEvent) => {
+    const current = zoomDragStateRef.current;
+    if (!current || markingMode !== 'zoom') return;
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+    zoomDragStateRef.current = { ...current, currentX: x, currentY: y };
+    setZoomDragPreview(calculateZoomBox(current.startX, current.startY, x, y));
+  }, [markingMode, calculateZoomBox]);
+
+  const handleZoomPointerUp = useCallback(() => {
+    const current = zoomDragStateRef.current;
+    if (!current || markingMode !== 'zoom') {
+      zoomDragStateRef.current = null;
+      setZoomDragPreview(null);
+      return;
+    }
+
+    const box = calculateZoomBox(current.startX, current.startY, current.currentX, current.currentY);
+    // Only save if the box has meaningful size
+    if (box.width > 0.05) {
+      onZoomBoxChange(box);
+    }
+
+    zoomDragStateRef.current = null;
+    setZoomDragPreview(null);
+  }, [markingMode, calculateZoomBox, onZoomBoxChange]);
+
+  useEffect(() => {
+    if (markingMode !== 'zoom') return;
+
+    window.addEventListener('pointerup', handleZoomPointerUp);
+    window.addEventListener('pointercancel', handleZoomPointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handleZoomPointerUp);
+      window.removeEventListener('pointercancel', handleZoomPointerUp);
+    };
+  }, [markingMode, handleZoomPointerUp]);
+
+  // Get the zoom box to display (preview while dragging, or saved)
+  const displayZoomBox = zoomDragPreview || zoomBox;
+
   return (
     <div className="word-selector">
       <div className="word-selector-header">
-        <h2>Select Words to Highlight</h2>
+        <h2>{markingMode === 'zoom' ? 'Draw Zoom Area' : 'Select Words to Highlight'}</h2>
         <button
           className="btn-ghost word-selector-clear"
           type="button"
-          onClick={() => onSelectionChange([])}
-          disabled={selectedWords.length === 0}
+          onClick={() => {
+            if (markingMode === 'zoom') {
+              onZoomBoxChange(null);
+            } else {
+              onSelectionChange([]);
+            }
+          }}
+          disabled={markingMode === 'zoom' ? !zoomBox : selectedWords.length === 0}
         >
           Clear Selection
         </button>
@@ -264,14 +377,34 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
       <div
         className="image-container"
         ref={containerRef}
-        style={{ width: '100%' }}
+        style={{ width: '100%', cursor: markingMode === 'zoom' ? 'crosshair' : undefined }}
+        onPointerDown={markingMode === 'zoom' ? handleZoomPointerDown : undefined}
+        onPointerMove={markingMode === 'zoom' ? handleZoomPointerMove : undefined}
       >
         <img
           src={imageSrc}
           alt="Uploaded"
-          style={{ width: '100%', height: 'auto' }}
+          style={{ width: '100%', height: 'auto', pointerEvents: markingMode === 'zoom' ? 'none' : undefined }}
         />
-        {words.map((word, index) => {
+        {/* Zoom box overlay */}
+        {markingMode === 'zoom' && displayZoomBox && (
+          <div
+            className="zoom-box-overlay"
+            style={{
+              position: 'absolute',
+              left: `${displayZoomBox.x * 100}%`,
+              top: `${displayZoomBox.y * 100}%`,
+              width: `${displayZoomBox.width * 100}%`,
+              height: `${displayZoomBox.height * 100}%`,
+              border: '3px solid rgba(59, 130, 246, 0.9)',
+              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+              boxSizing: 'border-box',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        {/* Word overlays - only show when not in zoom mode */}
+        {markingMode !== 'zoom' && words.map((word, index) => {
           const isSelected = isWordSelected(word);
 
           // Style based on marking mode
@@ -339,7 +472,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
         })}
       </div>
 
-      {selectedWords.length > 0 && (
+      {markingMode !== 'zoom' && selectedWords.length > 0 && (
         <div className="selected-words">
           <h3>Selected ({selectedWords.length} words):</h3>
           <div className="words-list">
@@ -351,6 +484,16 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
                 {word.text}
               </span>
             ))}
+          </div>
+        </div>
+      )}
+      {markingMode === 'zoom' && zoomBox && (
+        <div className="selected-words">
+          <h3>Zoom Target Set</h3>
+          <div className="words-list">
+            <span className="word-tag">
+              {Math.round(zoomBox.width * 100)}% × {Math.round(zoomBox.height * 100)}%
+            </span>
           </div>
         </div>
       )}

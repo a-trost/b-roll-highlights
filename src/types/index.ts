@@ -63,7 +63,15 @@ export interface OCRResult {
   imageHeight: number;
 }
 
-export type MarkingMode = "highlight" | "circle" | "underline" | "unblur";
+export type MarkingMode = "highlight" | "circle" | "underline" | "unblur" | "zoom";
+
+// Zoom bounding box (coordinates are relative to image, 0-1 range)
+export interface ZoomBox {
+  x: number;      // left position (0-1, relative to image)
+  y: number;      // top position (0-1, relative to image)
+  width: number;  // width (0-1, relative to image)
+  height: number; // height (0-1, relative to image)
+}
 
 // Camera movement direction options
 export type CameraMovement =
@@ -100,6 +108,8 @@ export interface HighlightProps {
   exitAnimation: ExitAnimation;
   vcrEffect: boolean;
   attributionText: string;
+  zoomBox?: ZoomBox;
+  zoomDurationSeconds?: number;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)
@@ -159,6 +169,11 @@ export const MAX_UNBLUR_SECONDS = 3;
 export const DEFAULT_CHARS_PER_SECOND = 15;
 export const MIN_CHARS_PER_SECOND = 5;
 export const MAX_CHARS_PER_SECOND = 30;
+
+// Zoom animation duration (seconds)
+export const DEFAULT_ZOOM_DURATION_SECONDS = 1.5;
+export const MIN_ZOOM_DURATION_SECONDS = 0.5;
+export const MAX_ZOOM_DURATION_SECONDS = 5;
 
 // Legacy export for backwards compatibility
 export const CHARS_PER_SECOND = DEFAULT_CHARS_PER_SECOND;

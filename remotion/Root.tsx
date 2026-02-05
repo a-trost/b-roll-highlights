@@ -6,13 +6,19 @@ import {
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
   DEFAULT_UNBLUR_SECONDS,
+  DEFAULT_ZOOM_DURATION_SECONDS,
   FPS,
 } from "../src/types";
 
 // Calculate the highlight animation duration based on character count
 // Duration = total characters / charsPerSecond
 function estimateHighlightDuration(props: HighlightProps): number {
-  const { selectedWords, charsPerSecond = DEFAULT_CHARS_PER_SECOND } = props;
+  const { selectedWords, charsPerSecond = DEFAULT_CHARS_PER_SECOND, markingMode, zoomDurationSeconds = DEFAULT_ZOOM_DURATION_SECONDS, zoomBox } = props;
+
+  // For zoom mode, use the zoom duration
+  if (markingMode === "zoom" && zoomBox) {
+    return Math.ceil(zoomDurationSeconds * FPS);
+  }
 
   if (selectedWords.length === 0) {
     return 60; // Default 2 seconds if no words
@@ -54,6 +60,8 @@ export const RemotionRoot: React.FC = () => {
           charsPerSecond: DEFAULT_CHARS_PER_SECOND,
           leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
           unblurSeconds: DEFAULT_UNBLUR_SECONDS,
+          zoomBox: undefined,
+          zoomDurationSeconds: DEFAULT_ZOOM_DURATION_SECONDS,
           previewSeconds: 0,
           blurredBackground: false,
           cameraMovement: "left-right" as const,

@@ -12,6 +12,7 @@ import type {
   CameraMovement,
   EnterAnimation,
   ExitAnimation,
+  ZoomBox,
 } from "./types";
 import {
   DEFAULT_LEAD_IN_SECONDS,
@@ -24,6 +25,9 @@ import {
   DEFAULT_UNBLUR_SECONDS,
   MIN_UNBLUR_SECONDS,
   MAX_UNBLUR_SECONDS,
+  DEFAULT_ZOOM_DURATION_SECONDS,
+  MIN_ZOOM_DURATION_SECONDS,
+  MAX_ZOOM_DURATION_SECONDS,
   getHighlightColors,
   getCircleColors,
   isDarkBackground,
@@ -41,6 +45,7 @@ type ItemSettings = {
   charsPerSecond: number;
   leadOutSeconds: number;
   unblurSeconds: number;
+  zoomDurationSeconds: number;
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
   enterAnimation: EnterAnimation;
@@ -56,6 +61,7 @@ type QueueItem = {
   imagePath: string | null;
   words: WordBox[];
   selectedWords: WordBox[];
+  zoomBox: ZoomBox | null;
   backgroundColor: [number, number, number];
   imageWidth: number;
   imageHeight: number;
@@ -77,6 +83,7 @@ type StoredQueueItem = {
   imagePath: string | null;
   words: WordBox[];
   selectedWords: WordBox[];
+  zoomBox: ZoomBox | null;
   backgroundColor: [number, number, number];
   imageWidth: number;
   imageHeight: number;
@@ -98,6 +105,7 @@ const createDefaultSettings = (): ItemSettings => ({
   charsPerSecond: DEFAULT_CHARS_PER_SECOND,
   leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
   unblurSeconds: DEFAULT_UNBLUR_SECONDS,
+  zoomDurationSeconds: DEFAULT_ZOOM_DURATION_SECONDS,
   blurredBackground: false,
   cameraMovement: "left-right",
   enterAnimation: "blur",
@@ -115,6 +123,7 @@ const createQueueItem = (
   imagePath: overrides.imagePath ?? null,
   words: overrides.words ?? [],
   selectedWords: overrides.selectedWords ?? [],
+  zoomBox: overrides.zoomBox ?? null,
   backgroundColor: overrides.backgroundColor ?? [255, 255, 255],
   imageWidth: overrides.imageWidth ?? 1920,
   imageHeight: overrides.imageHeight ?? 1080,
@@ -137,6 +146,7 @@ const serializeQueue = (queue: QueueItem[]): StoredQueueItem[] =>
     imagePath: item.imagePath,
     words: item.words,
     selectedWords: item.selectedWords,
+    zoomBox: item.zoomBox,
     backgroundColor: item.backgroundColor,
     imageWidth: item.imageWidth,
     imageHeight: item.imageHeight,
@@ -212,7 +222,7 @@ function App() {
   const isAnyRendering = queue.some((item) => item.isRendering);
   const hasAnyVideo = queue.some((item) => item.videoPath);
   const hasRenderableItems = queue.some(
-    (item) => item.filename && item.selectedWords.length > 0
+    (item) => item.filename && (item.selectedWords.length > 0 || item.zoomBox !== null)
   );
 
   useFavicon(isAnyRendering, hasAnyVideo);
@@ -355,7 +365,7 @@ function App() {
   const renderItem = useCallback(
     async (itemId: string, previewSeconds?: number) => {
       const item = queueRef.current.find((entry) => entry.id === itemId);
-      if (!item || !item.filename || item.selectedWords.length === 0) return;
+      if (!item || !item.filename || (item.selectedWords.length === 0 && !item.zoomBox)) return;
 
       const { selectedColor } = getItemColors(item);
 
@@ -380,6 +390,7 @@ function App() {
           body: JSON.stringify({
             filename: item.filename,
             selectedWords: item.selectedWords,
+            zoomBox: item.zoomBox,
             backgroundColor: item.backgroundColor,
             imageWidth: item.imageWidth,
             imageHeight: item.imageHeight,
@@ -388,6 +399,7 @@ function App() {
             leadInSeconds: item.settings.leadInSeconds,
             charsPerSecond: item.settings.charsPerSecond,
             leadOutSeconds: item.settings.leadOutSeconds,
+            zoomDurationSeconds: item.settings.zoomDurationSeconds,
             blurredBackground: item.settings.blurredBackground,
             cameraMovement: item.settings.cameraMovement,
             enterAnimation: item.settings.enterAnimation,
@@ -438,7 +450,7 @@ function App() {
   const renderAll = useCallback(
     async (previewSeconds?: number) => {
       const itemsToRender = queueRef.current.filter(
-        (item) => item.filename && item.selectedWords.length > 0 && !item.isRendering
+        (item) => item.filename && (item.selectedWords.length > 0 || item.zoomBox !== null) && !item.isRendering
       );
       await runWithConcurrency(itemsToRender, MAX_RENDER_CONCURRENCY, async (item) => {
         await renderItem(item.id, previewSeconds);
@@ -623,6 +635,13 @@ function App() {
                         selectedWords: words,
                       }))
                     }
+                    zoomBox={item.zoomBox}
+                    onZoomBoxChange={(zoomBox) =>
+                      updateItem(item.id, (current) => ({
+                        ...current,
+                        zoomBox,
+                      }))
+                    }
                     imageWidth={item.imageWidth}
                     imageHeight={item.imageHeight}
                     markingMode={item.settings.markingMode}
@@ -693,8 +712,22 @@ function App() {
                             <span className="mode-icon">◧</span>
                             Unblur
                           </button>
+                          <button
+                            className={`mode-btn ${
+                              item.settings.markingMode === "zoom" ? "active" : ""
+                            }`}
+                            onClick={() =>
+                              updateItemSettings(item.id, {
+                                markingMode: "zoom",
+                              })
+                            }
+                          >
+                            <span className="mode-icon">⊕</span>
+                            Zoom
+                          </button>
                         </div>
                       </div>
+                      {item.settings.markingMode !== "zoom" && (
                       <div className="setting-group">
                         <label className="setting-label" htmlFor={`color-select-${item.id}`}>
                           {item.settings.markingMode === "highlight" ||
@@ -725,6 +758,7 @@ function App() {
                           </select>
                         </div>
                       </div>
+                      )}
                     </div>
                   </div>
 
@@ -812,6 +846,29 @@ function App() {
                             onChange={(e) =>
                               updateItemSettings(item.id, {
                                 unblurSeconds: parseFloat(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                      {item.settings.markingMode === "zoom" && (
+                        <div className="slider-control">
+                          <div className="slider-header">
+                            <span className="slider-label">Zoom Duration</span>
+                            <span className="slider-value">
+                              {item.settings.zoomDurationSeconds}s
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            id={`zoom-duration-${item.id}`}
+                            min={MIN_ZOOM_DURATION_SECONDS}
+                            max={MAX_ZOOM_DURATION_SECONDS}
+                            step={0.1}
+                            value={item.settings.zoomDurationSeconds}
+                            onChange={(e) =>
+                              updateItemSettings(item.id, {
+                                zoomDurationSeconds: parseFloat(e.target.value),
                               })
                             }
                           />
@@ -955,7 +1012,7 @@ function App() {
                         e.stopPropagation();
                         renderItem(item.id);
                       }}
-                      disabled={item.selectedWords.length === 0 || item.isRendering}
+                      disabled={(item.selectedWords.length === 0 && !item.zoomBox) || item.isRendering}
                     >
                       {item.isRendering ? (
                         <>
@@ -973,7 +1030,7 @@ function App() {
                           e.stopPropagation();
                           renderItem(item.id, PREVIEW_SECONDS);
                         }}
-                        disabled={item.selectedWords.length === 0 || item.isRendering}
+                        disabled={(item.selectedWords.length === 0 && !item.zoomBox) || item.isRendering}
                       >
                         Render Preview ({PREVIEW_SECONDS}s)
                       </button>

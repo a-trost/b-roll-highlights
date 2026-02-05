@@ -1,10 +1,11 @@
 import { renderHighlightVideo } from '../services/remotionRenderer';
-import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation } from '../../src/types';
+import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation, ZoomBox } from '../../src/types';
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
   DEFAULT_UNBLUR_SECONDS,
+  DEFAULT_ZOOM_DURATION_SECONDS,
 } from '../../src/types';
 
 const corsHeaders = {
@@ -29,6 +30,7 @@ export async function handleRender(request: Request): Promise<Response> {
     const {
       filename,
       selectedWords,
+      zoomBox,
       backgroundColor,
       imageWidth,
       imageHeight,
@@ -37,6 +39,7 @@ export async function handleRender(request: Request): Promise<Response> {
       leadInSeconds,
       charsPerSecond,
       leadOutSeconds,
+      zoomDurationSeconds,
       blurredBackground,
       cameraMovement,
       enterAnimation,
@@ -47,13 +50,18 @@ export async function handleRender(request: Request): Promise<Response> {
       attributionText,
     } = body;
 
-    if (!filename || !selectedWords || !backgroundColor) {
+    if (!filename || !backgroundColor) {
       return jsonResponse({ error: 'Missing required fields' }, 400);
+    }
+
+    // Either selectedWords or zoomBox required
+    if ((!selectedWords || selectedWords.length === 0) && !zoomBox) {
+      return jsonResponse({ error: 'Either selectedWords or zoomBox required' }, 400);
     }
 
     const props: HighlightProps = {
       imageSrc: `http://localhost:3001/uploads/${filename}`,
-      selectedWords: selectedWords as WordBox[],
+      selectedWords: (selectedWords as WordBox[]) || [],
       backgroundColor: backgroundColor as [number, number, number],
       imageWidth: imageWidth || 1920,
       imageHeight: imageHeight || 1080,
@@ -64,6 +72,8 @@ export async function handleRender(request: Request): Promise<Response> {
       leadOutSeconds: leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS,
       blurredBackground: blurredBackground ?? false,
       unblurSeconds: unblurSeconds ?? DEFAULT_UNBLUR_SECONDS,
+      zoomBox: zoomBox as ZoomBox | undefined,
+      zoomDurationSeconds: zoomDurationSeconds ?? DEFAULT_ZOOM_DURATION_SECONDS,
       previewSeconds: previewSeconds ?? 0,
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
       enterAnimation: (enterAnimation as EnterAnimation) || 'blur',

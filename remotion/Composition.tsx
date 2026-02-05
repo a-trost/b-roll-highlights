@@ -13,6 +13,7 @@ import {
   DEFAULT_LEAD_OUT_SECONDS,
   DEFAULT_CHARS_PER_SECOND,
   DEFAULT_UNBLUR_SECONDS,
+  DEFAULT_ZOOM_DURATION_SECONDS,
   FPS,
   isDarkBackground,
 } from "../src/types";
@@ -39,6 +40,8 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     charsPerSecond = DEFAULT_CHARS_PER_SECOND,
     leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
     unblurSeconds = DEFAULT_UNBLUR_SECONDS,
+    zoomBox,
+    zoomDurationSeconds = DEFAULT_ZOOM_DURATION_SECONDS,
     blurredBackground = false,
     cameraMovement = "left-right" as CameraMovement,
     enterAnimation = "blur" as EnterAnimation,
@@ -308,6 +311,54 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
 
   const { rotateX, rotateY, scale } = calculateCameraTransform();
 
+  // Calculate zoom animation (for zoom mode)
+  const calculateZoomTransform = (): { zoomScale: number; zoomTranslateX: number; zoomTranslateY: number } => {
+    if (markingMode !== "zoom" || !zoomBox) {
+      return { zoomScale: 1, zoomTranslateX: 0, zoomTranslateY: 0 };
+    }
+
+    const zoomDurationFrames = Math.round(zoomDurationSeconds * FPS);
+    const zoomStartFrame = leadInFrames;
+    const zoomEndFrame = zoomStartFrame + zoomDurationFrames;
+
+    // Calculate zoom progress with ease-in-out
+    const zoomProgress = interpolate(
+      frame,
+      [zoomStartFrame, zoomEndFrame],
+      [0, 1],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+        easing: Easing.inOut(Easing.cubic),
+      }
+    );
+
+    // Calculate target scale (1 / zoomBox.width gives us how much to zoom)
+    const targetScale = 1 / zoomBox.width;
+    const currentScale = interpolate(zoomProgress, [0, 1], [1, targetScale]);
+
+    // Calculate translation to center the zoom box
+    // The center of the zoomBox in normalized coordinates (0-1)
+    const boxCenterX = zoomBox.x + zoomBox.width / 2;
+    const boxCenterY = zoomBox.y + zoomBox.height / 2;
+
+    // We need to translate so the box center becomes the viewport center
+    // Translation is relative to the scaled image size
+    const targetTranslateX = (0.5 - boxCenterX) * 100; // percentage
+    const targetTranslateY = (0.5 - boxCenterY) * 100; // percentage
+
+    const currentTranslateX = interpolate(zoomProgress, [0, 1], [0, targetTranslateX]);
+    const currentTranslateY = interpolate(zoomProgress, [0, 1], [0, targetTranslateY]);
+
+    return {
+      zoomScale: currentScale,
+      zoomTranslateX: currentTranslateX,
+      zoomTranslateY: currentTranslateY,
+    };
+  };
+
+  const { zoomScale, zoomTranslateX, zoomTranslateY } = calculateZoomTransform();
+
   // Calculate total highlight duration based on character count
   const totalCharacters = selectedWords.reduce(
     (sum, word) => sum + word.text.length,
@@ -404,14 +455,16 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
 
       <div
         style={{
-          transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+          transform: markingMode === "zoom" && zoomBox
+            ? `scale(${zoomScale}) translate(${zoomTranslateX}%, ${zoomTranslateY}%) translate(${translateX}px, ${translateY}px)`
+            : `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translate(${translateX}px, ${translateY}px)`,
           filter: blur > 0 ? `blur(${blur}px)` : "none",
           opacity,
           position: "relative",
           width: displayWidth,
           height: displayHeight,
           zIndex: 1,
-          overflow: "hidden",
+          overflow: markingMode === "zoom" ? "visible" : "hidden",
         }}
       >
         {/* Highlighter layer - behind the image text (only for highlight mode) */}
@@ -428,7 +481,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
         )}
 
         {/* Image layer */}
-        {imageSrc && markingMode !== "unblur" && (
+        {imageSrc && markingMode !== "unblur" && markingMode !== "zoom" && (
           <Img
             src={resolvedImageSrc}
             style={{
@@ -439,6 +492,21 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
               left: 0,
               zIndex: 2,
               mixBlendMode: markingMode === "highlight" ? blendMode : "normal",
+            }}
+          />
+        )}
+
+        {/* Zoom mode: just show the image */}
+        {imageSrc && markingMode === "zoom" && (
+          <Img
+            src={resolvedImageSrc}
+            style={{
+              width: displayWidth,
+              height: displayHeight,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              zIndex: 2,
             }}
           />
         )}

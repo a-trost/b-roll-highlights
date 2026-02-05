@@ -12,7 +12,9 @@
       "Bash(bun install)",
       "Bash(bunx tsc:*)",
       "Bash(ffmpeg:*)",
-      "Bash(bun build:*)"
+      "Bash(bun build:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx remotion:*)"
     ]
   }
 }
