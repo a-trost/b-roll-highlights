@@ -627,7 +627,7 @@ function App() {
                         onChange={(e) => updateSettings({ blurredBackground: e.target.checked })}
                       />
                       <span className="toggle-slider"></span>
-                      <span className="toggle-label">Blurred BG</span>
+                      <span className="toggle-label">Blurred Image</span>
                     </label>
                   </div>
                   <div className="setting-group">
@@ -676,7 +676,10 @@ function App() {
                       Rendering...
                     </>
                   ) : (
-                    <>Generate Video</>
+                    <>
+                      Generate Video
+                      <span className="keyboard-shortcut">⌘↵</span>
+                    </>
                   )}
                 </button>
               </div>
