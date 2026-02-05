@@ -62,7 +62,6 @@ export const RemotionRoot: React.FC = () => {
           unblurSeconds: DEFAULT_UNBLUR_SECONDS,
           zoomBox: undefined,
           zoomDurationSeconds: DEFAULT_ZOOM_DURATION_SECONDS,
-          previewSeconds: 0,
           blurredBackground: false,
           cameraMovement: "left-right" as const,
           enterAnimation: "blur" as const,
@@ -90,13 +89,9 @@ export const RemotionRoot: React.FC = () => {
 
           // Total duration = lead-in + highlight animation + lead-out + exit buffer
           const totalFrames = leadInFrames + highlightFrames + leadOutFrames + exitBuffer;
-          const previewSeconds = typedProps.previewSeconds ?? 0;
-          const previewFrames =
-            previewSeconds > 0 ? Math.max(1, Math.round(previewSeconds * FPS)) : 0;
 
           return {
-            durationInFrames:
-              previewFrames > 0 ? Math.min(totalFrames, previewFrames) : totalFrames,
+            durationInFrames: totalFrames,
             props,
           };
         }}

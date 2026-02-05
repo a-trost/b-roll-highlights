@@ -46,7 +46,6 @@ export async function handleRender(request: Request): Promise<Response> {
       exitAnimation,
       vcrEffect,
       unblurSeconds,
-      previewSeconds,
       attributionText,
     } = body;
 
@@ -74,7 +73,6 @@ export async function handleRender(request: Request): Promise<Response> {
       unblurSeconds: unblurSeconds ?? DEFAULT_UNBLUR_SECONDS,
       zoomBox: zoomBox as ZoomBox | undefined,
       zoomDurationSeconds: zoomDurationSeconds ?? DEFAULT_ZOOM_DURATION_SECONDS,
-      previewSeconds: previewSeconds ?? 0,
       cameraMovement: (cameraMovement as CameraMovement) || 'left-right',
       enterAnimation: (enterAnimation as EnterAnimation) || 'blur',
       exitAnimation: (exitAnimation as ExitAnimation) || 'none',

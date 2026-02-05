@@ -763,18 +763,6 @@ body {
   color: #e2e8f0;
 }
 
-.preview-badge {
-  margin-left: 0.5rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: rgba(125, 211, 252, 0.15);
-  color: #7dd3fc;
-  border: 1px solid rgba(125, 211, 252, 0.4);
-}
-
 .progress-panel {
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
   border: 1px solid rgba(100, 116, 139, 0.2);

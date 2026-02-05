@@ -68,11 +68,9 @@ type QueueItem = {
   settings: ItemSettings;
   videoPath: string | null;
   renderTime: number | null;
-  isPreview: boolean;
   isUploading: boolean;
   isProcessingOCR: boolean;
   isRendering: boolean;
-  isRenderingPreview: boolean;
   status: Status;
 };
 
@@ -90,11 +88,9 @@ type StoredQueueItem = {
   settings: ItemSettings;
   videoPath: string | null;
   renderTime: number | null;
-  isPreview: boolean;
 };
 
 const STORAGE_KEY = "broll-queue-v1";
-const PREVIEW_SECONDS = 6;
 const MAX_UPLOAD_CONCURRENCY = 2;
 const MAX_RENDER_CONCURRENCY = 2;
 
@@ -130,11 +126,9 @@ const createQueueItem = (
   settings: { ...createDefaultSettings(), ...overrides.settings },
   videoPath: overrides.videoPath ?? null,
   renderTime: overrides.renderTime ?? null,
-  isPreview: overrides.isPreview ?? false,
   isUploading: overrides.isUploading ?? false,
   isProcessingOCR: overrides.isProcessingOCR ?? false,
   isRendering: overrides.isRendering ?? false,
-  isRenderingPreview: overrides.isRenderingPreview ?? false,
   status: overrides.status ?? null,
 });
 
@@ -153,7 +147,6 @@ const serializeQueue = (queue: QueueItem[]): StoredQueueItem[] =>
     settings: item.settings,
     videoPath: item.videoPath,
     renderTime: item.renderTime,
-    isPreview: item.isPreview,
   }));
 
 const hydrateQueue = (stored: StoredQueueItem[]): QueueItem[] =>
@@ -165,7 +158,6 @@ const hydrateQueue = (stored: StoredQueueItem[]): QueueItem[] =>
       isUploading: false,
       isProcessingOCR: false,
       isRendering: false,
-      isRenderingPreview: false,
       status: null,
     })
   );
@@ -285,7 +277,6 @@ function App() {
             selectedWords: [],
             videoPath: null,
             renderTime: null,
-            isPreview: false,
             isUploading: false,
             isProcessingOCR: true,
             status: { type: "info", message: "Processing image with OCR..." },
@@ -363,7 +354,7 @@ function App() {
   }, []);
 
   const renderItem = useCallback(
-    async (itemId: string, previewSeconds?: number) => {
+    async (itemId: string) => {
       const item = queueRef.current.find((entry) => entry.id === itemId);
       if (!item || !item.filename || (item.selectedWords.length === 0 && !item.zoomBox)) return;
 
@@ -372,13 +363,10 @@ function App() {
       updateItem(itemId, (current) => ({
         ...current,
         isRendering: true,
-        isRenderingPreview: Boolean(previewSeconds),
         renderTime: null,
         status: {
           type: "info",
-          message: previewSeconds
-            ? "Rendering preview... This may take a moment."
-            : "Rendering video... This may take a moment.",
+          message: "Rendering video... This may take a moment.",
         },
       }));
 
@@ -407,7 +395,6 @@ function App() {
             vcrEffect: item.settings.vcrEffect,
             unblurSeconds: item.settings.unblurSeconds,
             attributionText: item.settings.attributionText,
-            previewSeconds: previewSeconds ?? 0,
           }),
         });
 
@@ -420,12 +407,9 @@ function App() {
           ...current,
           videoPath: data.videoPath,
           renderTime: Date.now() - startTime,
-          isPreview: Boolean(previewSeconds),
           status: {
             type: "success",
-            message: previewSeconds
-              ? "Preview rendered successfully!"
-              : "Video rendered successfully!",
+            message: "Video rendered successfully!",
           },
         }));
       } catch (error) {
@@ -440,7 +424,6 @@ function App() {
         updateItem(itemId, (current) => ({
           ...current,
           isRendering: false,
-          isRenderingPreview: false,
         }));
       }
     },
@@ -448,12 +431,12 @@ function App() {
   );
 
   const renderAll = useCallback(
-    async (previewSeconds?: number) => {
+    async () => {
       const itemsToRender = queueRef.current.filter(
         (item) => item.filename && (item.selectedWords.length > 0 || item.zoomBox !== null) && !item.isRendering
       );
       await runWithConcurrency(itemsToRender, MAX_RENDER_CONCURRENCY, async (item) => {
-        await renderItem(item.id, previewSeconds);
+        await renderItem(item.id);
       });
     },
     [renderItem]
@@ -494,8 +477,8 @@ function App() {
     }
     if (item.isRendering) {
       return {
-        label: item.isRenderingPreview ? "Preview" : "Rendering",
-        detail: item.isRenderingPreview ? "Rendering preview" : "Rendering video",
+        label: "Rendering",
+        detail: "Rendering video",
         value: 80,
       };
     }
@@ -549,13 +532,6 @@ function App() {
             disabled={!hasRenderableItems}
           >
             Render All
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => renderAll(PREVIEW_SECONDS)}
-            disabled={!hasRenderableItems}
-          >
-            Render All Previews ({PREVIEW_SECONDS}s)
           </button>
           <button className="btn btn-ghost" onClick={clearQueue}>
             Clear Queue
@@ -1023,18 +999,6 @@ function App() {
                         <>Generate Video</>
                       )}
                     </button>
-                    <div className="btn-group-secondary">
-                      <button
-                        className="btn btn-secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          renderItem(item.id, PREVIEW_SECONDS);
-                        }}
-                        disabled={(item.selectedWords.length === 0 && !item.zoomBox) || item.isRendering}
-                      >
-                        Render Preview ({PREVIEW_SECONDS}s)
-                      </button>
-                    </div>
                   </div>
                 </div>
 
@@ -1042,7 +1006,6 @@ function App() {
                   videoPath={item.videoPath}
                   isRendering={item.isRendering}
                   renderTime={item.renderTime}
-                  isPreview={item.isPreview}
                 />
 
                 {item.status && (

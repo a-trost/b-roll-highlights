@@ -11,7 +11,6 @@ const rootDir = path.resolve(__dirname, '../..');
 let bundleLocation: string | null = null;
 
 function generateFilename(props: HighlightProps): string {
-  const isPreview = (props.previewSeconds ?? 0) > 0;
   const words = props.selectedWords.map((w) => w.text).join("-");
   // Sanitize: remove special chars, limit length
   const sanitized = words
@@ -19,8 +18,7 @@ function generateFilename(props: HighlightProps): string {
     .slice(0, 50);
   // Add short timestamp for uniqueness
   const timestamp = Date.now().toString(36);
-  const prefix = isPreview ? "Preview" : "Highlight";
-  return `${prefix}-${sanitized || "video"}-${timestamp}.mp4`;
+  return `Highlight-${sanitized || "video"}-${timestamp}.mp4`;
 }
 
 async function ensureBundle(): Promise<string> {

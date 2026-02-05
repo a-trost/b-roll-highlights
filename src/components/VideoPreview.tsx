@@ -4,7 +4,6 @@ interface VideoPreviewProps {
   videoPath: string | null;
   isRendering: boolean;
   renderTime: number | null;
-  isPreview: boolean;
 }
 
 function formatRenderTime(ms: number): string {
@@ -21,7 +20,6 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   videoPath,
   isRendering,
   renderTime,
-  isPreview,
 }) => {
   if (isRendering) {
     return (
@@ -49,10 +47,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   return (
     <div className="video-preview">
-      <h2>
-        Video Preview
-        {isPreview && <span className="preview-badge">Preview</span>}
-      </h2>
+      <h2>Video Preview</h2>
       <video
         key={videoPath}
         controls
