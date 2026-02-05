@@ -13,9 +13,10 @@ body {
 }
 
 .app {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 1rem 1.5rem;
+  min-height: 100vh;
 }
 
 .app-header {
@@ -65,13 +66,14 @@ body {
 }
 
 .empty-state {
-  margin-top: 2rem;
-  padding: 1.5rem;
+  margin-top: 1.5rem;
+  padding: 2rem;
   border-radius: 16px;
   border: 1px dashed rgba(100, 116, 139, 0.3);
   text-align: center;
   color: rgba(148, 163, 184, 0.85);
   background: rgba(15, 23, 42, 0.4);
+  font-size: 0.9rem;
 }
 
 .app h1 {
@@ -84,76 +86,60 @@ body {
   background-clip: text;
 }
 
-.container {
+/* Editor Layout - Two Column */
+.editor-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 400px;
   gap: 2rem;
   align-items: start;
+  margin-top: 1rem;
 }
 
-.queue-toolbar {
-  margin: 1.5rem 0 2rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.queue-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 2rem;
-  align-items: start;
-}
-
-.queue-card {
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-  border: 1px solid rgba(100, 116, 139, 0.2);
-  border-radius: 18px;
-  padding: 1.5rem;
-  backdrop-filter: blur(10px);
+.editor-main {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.queue-card.active {
-  border-color: rgba(125, 211, 252, 0.5);
-  box-shadow: 0 0 18px rgba(125, 211, 252, 0.15);
+.editor-sidebar {
+  position: sticky;
+  top: 1rem;
 }
 
-.queue-card-header {
+.editor-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.2);
 }
 
-.queue-card-title {
-  font-size: 1rem;
+.editor-title {
+  font-size: 1.1rem;
   font-weight: 600;
   color: #e2e8f0;
+  margin: 0;
 }
 
-.queue-card-meta {
-  font-size: 0.75rem;
+.editor-meta {
+  font-size: 0.8rem;
   color: rgba(148, 163, 184, 0.8);
+  margin-top: 0.25rem;
 }
 
-.queue-card-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.queue-card-actions .btn-ghost {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.75rem;
-  border-radius: 999px;
+.editor-status {
+  grid-column: 1 / -1;
+  margin-top: 1rem;
 }
 
 @media (max-width: 1024px) {
-  .container {
+  .editor-layout {
     grid-template-columns: 1fr;
+  }
+
+  .editor-sidebar {
+    position: static;
   }
 }
 
@@ -752,13 +738,13 @@ body {
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
   border: 1px solid rgba(100, 116, 139, 0.2);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   backdrop-filter: blur(10px);
 }
 
 .video-preview h2 {
   margin-bottom: 1rem;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #e2e8f0;
 }
@@ -859,14 +845,20 @@ body {
 
 .video-preview .download-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.video-preview .download-link {
+  width: 100%;
+  justify-content: center;
 }
 
 .video-preview .render-time {
   font-size: 0.8rem;
   color: rgba(148, 163, 184, 0.8);
+  text-align: center;
 }
 
 /* Loading & Status */
@@ -931,7 +923,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1.5rem;
+  padding: 2rem 1.25rem;
   color: #64748b;
   text-align: center;
   background: rgba(15, 23, 42, 0.4);
@@ -940,13 +932,13 @@ body {
 }
 
 .placeholder p {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.5;
-  max-width: 280px;
+  max-width: 240px;
 }
 
 .placeholder-icon {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
   opacity: 0.6;
 }

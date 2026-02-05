@@ -1,18 +1,35 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import sharp from 'sharp';
 import type { WordBox } from '../../src/types';
 
 const execAsync = promisify(exec);
 
+// Formats that Tesseract/Leptonica doesn't support natively
+const UNSUPPORTED_FORMATS = ['.avif', '.heic', '.heif'];
+
 export async function runOCR(imagePath: string): Promise<WordBox[]> {
-  const outputBase = imagePath.replace(/\.[^.]+$/, '_ocr');
+  const ext = imagePath.toLowerCase().slice(imagePath.lastIndexOf('.'));
+  const needsConversion = UNSUPPORTED_FORMATS.includes(ext);
+
+  // Convert unsupported formats to PNG for Tesseract
+  let ocrImagePath = imagePath;
+  let tempPngPath: string | null = null;
+
+  if (needsConversion) {
+    tempPngPath = imagePath.replace(/\.[^.]+$/, '_converted.png');
+    await sharp(imagePath).png().toFile(tempPngPath);
+    ocrImagePath = tempPngPath;
+  }
+
+  const outputBase = ocrImagePath.replace(/\.[^.]+$/, '_ocr');
   const outputTsv = `${outputBase}.tsv`;
 
   try {
     // Run tesseract with TSV output
     await execAsync(
-      `tesseract "${imagePath}" "${outputBase}" -l eng --psm 3 tsv`
+      `tesseract "${ocrImagePath}" "${outputBase}" -l eng --psm 3 tsv`
     );
 
     // Read and parse TSV output
@@ -44,13 +61,19 @@ export async function runOCR(imagePath: string): Promise<WordBox[]> {
       }
     }
 
-    // Clean up TSV file
+    // Clean up temporary files
     await fs.unlink(outputTsv).catch(() => {});
+    if (tempPngPath) {
+      await fs.unlink(tempPngPath).catch(() => {});
+    }
 
     return words;
   } catch (error) {
-    // Clean up TSV file on error
+    // Clean up temporary files on error
     await fs.unlink(outputTsv).catch(() => {});
+    if (tempPngPath) {
+      await fs.unlink(tempPngPath).catch(() => {});
+    }
     throw error;
   }
 }

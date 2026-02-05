@@ -38,7 +38,7 @@ type Status = {
   message: string;
 } | null;
 
-type ItemSettings = {
+type Settings = {
   colorIndex: number;
   markingMode: MarkingMode;
   leadInSeconds: number;
@@ -54,47 +54,28 @@ type ItemSettings = {
   attributionText: string;
 };
 
-type QueueItem = {
-  id: string;
+type ImageState = {
   sourceName: string;
-  filename: string | null;
-  imagePath: string | null;
+  filename: string;
+  imagePath: string;
   words: WordBox[];
   selectedWords: WordBox[];
   zoomBox: ZoomBox | null;
   backgroundColor: [number, number, number];
   imageWidth: number;
   imageHeight: number;
-  settings: ItemSettings;
-  videoPath: string | null;
-  renderTime: number | null;
-  isUploading: boolean;
-  isProcessingOCR: boolean;
-  isRendering: boolean;
-  status: Status;
-};
-
-type StoredQueueItem = {
-  id: string;
-  sourceName: string;
-  filename: string | null;
-  imagePath: string | null;
-  words: WordBox[];
-  selectedWords: WordBox[];
-  zoomBox: ZoomBox | null;
-  backgroundColor: [number, number, number];
-  imageWidth: number;
-  imageHeight: number;
-  settings: ItemSettings;
+  settings: Settings;
   videoPath: string | null;
   renderTime: number | null;
 };
 
-const STORAGE_KEY = "broll-queue-v1";
-const MAX_UPLOAD_CONCURRENCY = 2;
-const MAX_RENDER_CONCURRENCY = 2;
+type StoredState = {
+  image: ImageState | null;
+};
 
-const createDefaultSettings = (): ItemSettings => ({
+const STORAGE_KEY = "broll-state-v2";
+
+const createDefaultSettings = (): Settings => ({
   colorIndex: 0,
   markingMode: "highlight",
   leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
@@ -110,217 +91,112 @@ const createDefaultSettings = (): ItemSettings => ({
   attributionText: "",
 });
 
-const createQueueItem = (
-  overrides: Partial<QueueItem> & { id: string; sourceName: string }
-): QueueItem => ({
-  id: overrides.id,
-  sourceName: overrides.sourceName,
-  filename: overrides.filename ?? null,
-  imagePath: overrides.imagePath ?? null,
-  words: overrides.words ?? [],
-  selectedWords: overrides.selectedWords ?? [],
-  zoomBox: overrides.zoomBox ?? null,
-  backgroundColor: overrides.backgroundColor ?? [255, 255, 255],
-  imageWidth: overrides.imageWidth ?? 1920,
-  imageHeight: overrides.imageHeight ?? 1080,
-  settings: { ...createDefaultSettings(), ...overrides.settings },
-  videoPath: overrides.videoPath ?? null,
-  renderTime: overrides.renderTime ?? null,
-  isUploading: overrides.isUploading ?? false,
-  isProcessingOCR: overrides.isProcessingOCR ?? false,
-  isRendering: overrides.isRendering ?? false,
-  status: overrides.status ?? null,
-});
-
-const serializeQueue = (queue: QueueItem[]): StoredQueueItem[] =>
-  queue.map((item) => ({
-    id: item.id,
-    sourceName: item.sourceName,
-    filename: item.filename,
-    imagePath: item.imagePath,
-    words: item.words,
-    selectedWords: item.selectedWords,
-    zoomBox: item.zoomBox,
-    backgroundColor: item.backgroundColor,
-    imageWidth: item.imageWidth,
-    imageHeight: item.imageHeight,
-    settings: item.settings,
-    videoPath: item.videoPath,
-    renderTime: item.renderTime,
-  }));
-
-const hydrateQueue = (stored: StoredQueueItem[]): QueueItem[] =>
-  stored.map((item) =>
-    createQueueItem({
-      ...item,
-      id: item.id,
-      sourceName: item.sourceName,
-      isUploading: false,
-      isProcessingOCR: false,
-      isRendering: false,
-      status: null,
-    })
-  );
-
-const loadQueue = (): QueueItem[] => {
-  if (typeof window === "undefined") return [];
+const loadState = (): ImageState | null => {
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as StoredQueueItem[];
-    if (!Array.isArray(parsed)) return [];
-    return hydrateQueue(parsed);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredState;
+    return parsed.image ?? null;
   } catch {
-    return [];
+    return null;
   }
 };
 
-const runWithConcurrency = async <T,>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<void>
-): Promise<void> => {
-  if (items.length === 0) return;
-  let index = 0;
-  const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-    while (index < items.length) {
-      const currentIndex = index;
-      index += 1;
-      await worker(items[currentIndex]);
-    }
-  });
-  await Promise.all(runners);
+const saveState = (image: ImageState | null) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ image }));
 };
 
 function App() {
-  const [queue, setQueue] = useState<QueueItem[]>(() => loadQueue());
-  const [activeItemId, setActiveItemId] = useState<string | null>(null);
-  const queueRef = useRef(queue);
+  const [image, setImage] = useState<ImageState | null>(() => loadState());
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [isRendering, setIsRendering] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+  const imageRef = useRef(image);
 
   useEffect(() => {
-    queueRef.current = queue;
-  }, [queue]);
+    imageRef.current = image;
+  }, [image]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeQueue(queue)));
-  }, [queue]);
+    saveState(image);
+  }, [image]);
 
-  useEffect(() => {
-    if (activeItemId && queue.some((item) => item.id === activeItemId)) return;
-    setActiveItemId(queue[0]?.id ?? null);
-  }, [queue, activeItemId]);
+  const hasVideo = Boolean(image?.videoPath);
+  const canRender = image && (image.selectedWords.length > 0 || image.zoomBox !== null);
 
-  const isAnyRendering = queue.some((item) => item.isRendering);
-  const hasAnyVideo = queue.some((item) => item.videoPath);
-  const hasRenderableItems = queue.some(
-    (item) => item.filename && (item.selectedWords.length > 0 || item.zoomBox !== null)
-  );
+  useFavicon(isRendering, hasVideo);
 
-  useFavicon(isAnyRendering, hasAnyVideo);
+  const handleUpload = useCallback(async (files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
 
-  const updateItem = useCallback(
-    (id: string, updater: (item: QueueItem) => QueueItem) => {
-      setQueue((prev) => prev.map((item) => (item.id === id ? updater(item) : item)));
-    },
-    []
-  );
+    const file = imageFiles[0];
+    setIsUploading(true);
+    setStatus({ type: "info", message: "Uploading image..." });
 
-  const handleUpload = useCallback(
-    async (files: File[]) => {
-      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-      if (imageFiles.length === 0) return;
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
 
-      const entries = imageFiles.map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-      }));
-
-      setQueue((prev) => [
-        ...prev,
-        ...entries.map(({ id, file }) =>
-          createQueueItem({
-            id,
-            sourceName: file.name,
-            isUploading: true,
-            status: { type: "info", message: "Uploading image..." },
-          })
-        ),
-      ]);
-
-      await runWithConcurrency(entries, MAX_UPLOAD_CONCURRENCY, async ({ id, file }) => {
-        updateItem(id, (item) => ({
-          ...item,
-          isUploading: true,
-          status: { type: "info", message: "Uploading image..." },
-        }));
-
-        try {
-          const formData = new FormData();
-          formData.append("image", file);
-
-          const uploadRes = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!uploadRes.ok) {
-            throw new Error("Upload failed");
-          }
-
-          const uploadData: UploadResponse = await uploadRes.json();
-
-          updateItem(id, (item) => ({
-            ...item,
-            filename: uploadData.filename,
-            imagePath: uploadData.path,
-            selectedWords: [],
-            videoPath: null,
-            renderTime: null,
-            isUploading: false,
-            isProcessingOCR: true,
-            status: { type: "info", message: "Processing image with OCR..." },
-          }));
-
-          const ocrRes = await fetch("/api/ocr", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ filename: uploadData.filename }),
-          });
-
-          if (!ocrRes.ok) {
-            throw new Error("OCR processing failed");
-          }
-
-          const ocrData: OCRResult = await ocrRes.json();
-
-          updateItem(id, (item) => ({
-            ...item,
-            words: ocrData.words,
-            backgroundColor: ocrData.backgroundColor,
-            imageWidth: ocrData.imageWidth,
-            imageHeight: ocrData.imageHeight,
-            isProcessingOCR: false,
-            status: {
-              type: "success",
-              message: `Found ${ocrData.words.length} words. ${isDarkBackground(ocrData.backgroundColor) ? "Dark" : "Light"} image detected.`,
-            },
-          }));
-        } catch (error) {
-          updateItem(id, (item) => ({
-            ...item,
-            isUploading: false,
-            isProcessingOCR: false,
-            status: {
-              type: "error",
-              message: error instanceof Error ? error.message : "Upload failed",
-            },
-          }));
-        }
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
       });
-    },
-    [updateItem]
-  );
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const uploadData: UploadResponse = await uploadRes.json();
+
+      setIsUploading(false);
+      setIsProcessingOCR(true);
+      setStatus({ type: "info", message: "Processing image with OCR..." });
+
+      const ocrRes = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: uploadData.filename }),
+      });
+
+      if (!ocrRes.ok) {
+        throw new Error("OCR processing failed");
+      }
+
+      const ocrData: OCRResult = await ocrRes.json();
+
+      setImage({
+        sourceName: file.name,
+        filename: uploadData.filename,
+        imagePath: uploadData.path,
+        words: ocrData.words,
+        selectedWords: [],
+        zoomBox: null,
+        backgroundColor: ocrData.backgroundColor,
+        imageWidth: ocrData.imageWidth,
+        imageHeight: ocrData.imageHeight,
+        settings: createDefaultSettings(),
+        videoPath: null,
+        renderTime: null,
+      });
+
+      setStatus({
+        type: "success",
+        message: `Found ${ocrData.words.length} words. ${isDarkBackground(ocrData.backgroundColor) ? "Dark" : "Light"} image detected.`,
+      });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Upload failed",
+      });
+    } finally {
+      setIsUploading(false);
+      setIsProcessingOCR(false);
+    }
+  }, []);
 
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -343,167 +219,117 @@ function App() {
     return () => document.removeEventListener("paste", handlePaste);
   }, [handleUpload]);
 
-  const getItemColors = useCallback((item: QueueItem) => {
+  const getColors = useCallback(() => {
+    if (!image) return { availableColors: [], colorIndex: 0, selectedColor: "" };
     const availableColors =
-      item.settings.markingMode === "highlight" || item.settings.markingMode === "unblur"
-        ? getHighlightColors(item.backgroundColor)
-        : getCircleColors(item.backgroundColor);
-    const colorIndex = Math.min(item.settings.colorIndex, availableColors.length - 1);
+      image.settings.markingMode === "highlight" || image.settings.markingMode === "unblur"
+        ? getHighlightColors(image.backgroundColor)
+        : getCircleColors(image.backgroundColor);
+    const colorIndex = Math.min(image.settings.colorIndex, availableColors.length - 1);
     const selectedColor = availableColors[colorIndex]?.value ?? availableColors[0].value;
     return { availableColors, colorIndex, selectedColor };
-  }, []);
+  }, [image]);
 
-  const renderItem = useCallback(
-    async (itemId: string) => {
-      const item = queueRef.current.find((entry) => entry.id === itemId);
-      if (!item || !item.filename || (item.selectedWords.length === 0 && !item.zoomBox)) return;
+  const handleRender = useCallback(async () => {
+    const currentImage = imageRef.current;
+    if (!currentImage || (currentImage.selectedWords.length === 0 && !currentImage.zoomBox)) return;
 
-      const { selectedColor } = getItemColors(item);
+    const { selectedColor } = getColors();
 
-      updateItem(itemId, (current) => ({
-        ...current,
-        isRendering: true,
-        renderTime: null,
-        status: {
-          type: "info",
-          message: "Rendering video... This may take a moment.",
-        },
-      }));
+    setIsRendering(true);
+    setStatus({ type: "info", message: "Rendering video... This may take a moment." });
 
-      const startTime = Date.now();
-      try {
-        const res = await fetch("/api/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: item.filename,
-            selectedWords: item.selectedWords,
-            zoomBox: item.zoomBox,
-            backgroundColor: item.backgroundColor,
-            imageWidth: item.imageWidth,
-            imageHeight: item.imageHeight,
-            highlightColor: selectedColor,
-            markingMode: item.settings.markingMode,
-            leadInSeconds: item.settings.leadInSeconds,
-            charsPerSecond: item.settings.charsPerSecond,
-            leadOutSeconds: item.settings.leadOutSeconds,
-            zoomDurationSeconds: item.settings.zoomDurationSeconds,
-            blurredBackground: item.settings.blurredBackground,
-            cameraMovement: item.settings.cameraMovement,
-            enterAnimation: item.settings.enterAnimation,
-            exitAnimation: item.settings.exitAnimation,
-            vcrEffect: item.settings.vcrEffect,
-            unblurSeconds: item.settings.unblurSeconds,
-            attributionText: item.settings.attributionText,
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error("Render failed");
-        }
-
-        const data: RenderResponse = await res.json();
-        updateItem(itemId, (current) => ({
-          ...current,
-          videoPath: data.videoPath,
-          renderTime: Date.now() - startTime,
-          status: {
-            type: "success",
-            message: "Video rendered successfully!",
-          },
-        }));
-      } catch (error) {
-        updateItem(itemId, (current) => ({
-          ...current,
-          status: {
-            type: "error",
-            message: error instanceof Error ? error.message : "Render failed",
-          },
-        }));
-      } finally {
-        updateItem(itemId, (current) => ({
-          ...current,
-          isRendering: false,
-        }));
-      }
-    },
-    [getItemColors, updateItem]
-  );
-
-  const renderAll = useCallback(
-    async () => {
-      const itemsToRender = queueRef.current.filter(
-        (item) => item.filename && (item.selectedWords.length > 0 || item.zoomBox !== null) && !item.isRendering
-      );
-      await runWithConcurrency(itemsToRender, MAX_RENDER_CONCURRENCY, async (item) => {
-        await renderItem(item.id);
+    const startTime = Date.now();
+    try {
+      const res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: currentImage.filename,
+          selectedWords: currentImage.selectedWords,
+          zoomBox: currentImage.zoomBox,
+          backgroundColor: currentImage.backgroundColor,
+          imageWidth: currentImage.imageWidth,
+          imageHeight: currentImage.imageHeight,
+          highlightColor: selectedColor,
+          markingMode: currentImage.settings.markingMode,
+          leadInSeconds: currentImage.settings.leadInSeconds,
+          charsPerSecond: currentImage.settings.charsPerSecond,
+          leadOutSeconds: currentImage.settings.leadOutSeconds,
+          zoomDurationSeconds: currentImage.settings.zoomDurationSeconds,
+          blurredBackground: currentImage.settings.blurredBackground,
+          cameraMovement: currentImage.settings.cameraMovement,
+          enterAnimation: currentImage.settings.enterAnimation,
+          exitAnimation: currentImage.settings.exitAnimation,
+          vcrEffect: currentImage.settings.vcrEffect,
+          unblurSeconds: currentImage.settings.unblurSeconds,
+          attributionText: currentImage.settings.attributionText,
+        }),
       });
-    },
-    [renderItem]
-  );
 
-  const removeItem = useCallback(
-    (id: string) => {
-      setQueue((prev) => prev.filter((item) => item.id !== id));
-      setActiveItemId((prev) => (prev === id ? null : prev));
-    },
-    []
-  );
+      if (!res.ok) {
+        throw new Error("Render failed");
+      }
 
-  const clearQueue = useCallback(() => {
-    setQueue([]);
-    setActiveItemId(null);
+      const data: RenderResponse = await res.json();
+      setImage((prev) =>
+        prev
+          ? {
+              ...prev,
+              videoPath: data.videoPath,
+              renderTime: Date.now() - startTime,
+            }
+          : null
+      );
+      setStatus({ type: "success", message: "Video rendered successfully!" });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Render failed",
+      });
+    } finally {
+      setIsRendering(false);
+    }
+  }, [getColors]);
+
+  const updateSettings = useCallback((partial: Partial<Settings>) => {
+    setImage((prev) =>
+      prev
+        ? {
+            ...prev,
+            settings: { ...prev.settings, ...partial },
+          }
+        : null
+    );
   }, []);
 
-  const updateItemSettings = useCallback(
-    (id: string, partial: Partial<ItemSettings>) => {
-      updateItem(id, (item) => ({
-        ...item,
-        settings: {
-          ...item.settings,
-          ...partial,
-        },
-      }));
-    },
-    [updateItem]
-  );
-
-  const getProgressState = useCallback((item: QueueItem) => {
-    if (item.isUploading) {
+  const getProgressState = useCallback(() => {
+    if (isUploading) {
       return { label: "Uploading", detail: "Uploading image", value: 20 };
     }
-    if (item.isProcessingOCR) {
+    if (isProcessingOCR) {
       return { label: "OCR", detail: "Processing text", value: 45 };
     }
-    if (item.isRendering) {
-      return {
-        label: "Rendering",
-        detail: "Rendering video",
-        value: 80,
-      };
+    if (isRendering) {
+      return { label: "Rendering", detail: "Rendering video", value: 80 };
     }
     return null;
-  }, []);
+  }, [isUploading, isProcessingOCR, isRendering]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        if (activeItemId) {
-          const item = queueRef.current.find((entry) => entry.id === activeItemId);
-          if (item && item.selectedWords.length > 0 && !item.isRendering) {
-            e.preventDefault();
-            renderItem(activeItemId);
-          }
+        if (canRender && !isRendering) {
+          e.preventDefault();
+          handleRender();
         }
       }
 
-      // Cmd+S to download video (always prevent browser save dialog)
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        const item = queueRef.current.find((entry) => entry.id === activeItemId);
-        if (item?.videoPath) {
+        if (image?.videoPath) {
           const link = document.createElement("a");
-          link.href = item.videoPath;
+          link.href = image.videoPath;
           link.download = "";
           link.click();
         }
@@ -512,9 +338,10 @@ function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [activeItemId, renderItem]);
+  }, [canRender, isRendering, handleRender, image?.videoPath]);
 
-  const isUploadingAny = queue.some((item) => item.isUploading);
+  const { availableColors, colorIndex, selectedColor } = getColors();
+  const progressState = getProgressState();
 
   return (
     <div className="app">
@@ -522,498 +349,345 @@ function App() {
         <div className="app-logo">✦</div>
         <h1>B-Roll Highlights</h1>
       </header>
-      <ImageUploader onUpload={handleUpload} isUploading={isUploadingAny} />
 
-      {queue.length > 0 && (
-        <div className="queue-toolbar">
-          <button
-            className="btn btn-primary"
-            onClick={() => renderAll()}
-            disabled={!hasRenderableItems}
-          >
-            Render All
-          </button>
-          <button className="btn btn-ghost" onClick={clearQueue}>
-            Clear Queue
-          </button>
-        </div>
-      )}
-
-      {queue.length === 0 ? (
-        <div className="empty-state">Upload images to start building your queue.</div>
+      {!image ? (
+        <>
+          <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
+          {status && <div className={`status ${status.type}`}>{status.message}</div>}
+        </>
       ) : (
-        <div className="queue-grid">
-          {queue.map((item, index) => {
-            const { availableColors, colorIndex, selectedColor } = getItemColors(item);
-            const progressState = getProgressState(item);
-
-            return (
-              <div
-                key={item.id}
-                className={`queue-card${activeItemId === item.id ? " active" : ""}`}
-                onClick={() => setActiveItemId(item.id)}
-              >
-                <div className="queue-card-header">
-                  <div>
-                    <h2 className="queue-card-title">
-                      {item.sourceName || `Image ${index + 1}`}
-                    </h2>
-                    <div className="queue-card-meta">
-                      {item.words.length} words · {item.selectedWords.length} selected
-                    </div>
-                  </div>
-                  <div className="queue-card-actions">
-                    <button
-                      className="btn-ghost"
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeItem(item.id);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
+        <div className="editor-layout">
+          <div className="editor-main">
+            <div className="editor-header">
+              <div>
+                <h2 className="editor-title">{image.sourceName}</h2>
+                <div className="editor-meta">
+                  {image.words.length} words · {image.selectedWords.length} selected
                 </div>
+              </div>
+              <button
+                className="btn-ghost"
+                type="button"
+                onClick={() => {
+                  setImage(null);
+                  setStatus(null);
+                }}
+              >
+                New Image
+              </button>
+            </div>
 
-                {progressState && (
-                  <div className="progress-panel">
-                    <div className="progress-panel-header">
-                      <span className="progress-panel-label">{progressState.label}</span>
-                      <span className="progress-panel-value">{progressState.detail}</span>
+            {progressState && (
+              <div className="progress-panel">
+                <div className="progress-panel-header">
+                  <span className="progress-panel-label">{progressState.label}</span>
+                  <span className="progress-panel-value">{progressState.detail}</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progressState.value}%` }} />
+                </div>
+              </div>
+            )}
+
+            {isUploading || isProcessingOCR ? (
+              <div className="loading">
+                <div className="spinner" />
+                <span>{isUploading ? "Uploading image..." : "Processing image with OCR..."}</span>
+              </div>
+            ) : (
+              <WordSelector
+                imageSrc={image.imagePath}
+                words={image.words}
+                selectedWords={image.selectedWords}
+                onSelectionChange={(words) => setImage((prev) => (prev ? { ...prev, selectedWords: words } : null))}
+                zoomBox={image.zoomBox}
+                onZoomBoxChange={(zoomBox) => setImage((prev) => (prev ? { ...prev, zoomBox } : null))}
+                imageWidth={image.imageWidth}
+                imageHeight={image.imageHeight}
+                markingMode={image.settings.markingMode}
+                highlightColor={selectedColor}
+              />
+            )}
+
+            <div className="settings-panel">
+              <div className="settings-section">
+                <h3 className="settings-section-title">Style</h3>
+                <div className="settings-row">
+                  <div className="setting-group">
+                    <span className="setting-label">Mode</span>
+                    <div className="mode-toggle">
+                      <button
+                        className={`mode-btn ${image.settings.markingMode === "highlight" ? "active" : ""}`}
+                        onClick={() => updateSettings({ markingMode: "highlight", colorIndex: 0 })}
+                      >
+                        <span className="mode-icon">◼</span>
+                        Highlight
+                      </button>
+                      <button
+                        className={`mode-btn ${image.settings.markingMode === "circle" ? "active" : ""}`}
+                        onClick={() => updateSettings({ markingMode: "circle", colorIndex: 0 })}
+                      >
+                        <span className="mode-icon">○</span>
+                        Circle
+                      </button>
+                      <button
+                        className={`mode-btn ${image.settings.markingMode === "underline" ? "active" : ""}`}
+                        onClick={() => updateSettings({ markingMode: "underline", colorIndex: 0 })}
+                      >
+                        <span className="mode-icon">_</span>
+                        Underline
+                      </button>
+                      <button
+                        className={`mode-btn ${image.settings.markingMode === "unblur" ? "active" : ""}`}
+                        onClick={() => updateSettings({ markingMode: "unblur", colorIndex: 0 })}
+                      >
+                        <span className="mode-icon">◧</span>
+                        Unblur
+                      </button>
+                      <button
+                        className={`mode-btn ${image.settings.markingMode === "zoom" ? "active" : ""}`}
+                        onClick={() => updateSettings({ markingMode: "zoom" })}
+                      >
+                        <span className="mode-icon">⊕</span>
+                        Zoom
+                      </button>
                     </div>
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${progressState.value}%` }}
+                  </div>
+                  {image.settings.markingMode !== "zoom" && (
+                    <div className="setting-group">
+                      <label className="setting-label" htmlFor="color-select">
+                        {image.settings.markingMode === "highlight" || image.settings.markingMode === "unblur"
+                          ? "Highlight"
+                          : "Pen"}{" "}
+                        Color
+                      </label>
+                      <div className="color-select-wrapper">
+                        <span className="color-preview" style={{ backgroundColor: selectedColor }} />
+                        <select
+                          id="color-select"
+                          value={colorIndex}
+                          onChange={(e) => updateSettings({ colorIndex: parseInt(e.target.value, 10) })}
+                        >
+                          {availableColors.map((color, idx) => (
+                            <option key={color.name} value={idx}>
+                              {color.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3 className="settings-section-title">Timing</h3>
+                <div className="settings-grid">
+                  <div className="slider-control">
+                    <div className="slider-header">
+                      <span className="slider-label">Lead In</span>
+                      <span className="slider-value">{image.settings.leadInSeconds}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={MIN_LEAD_SECONDS}
+                      max={MAX_LEAD_SECONDS}
+                      step={0.5}
+                      value={image.settings.leadInSeconds}
+                      onChange={(e) => updateSettings({ leadInSeconds: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="slider-control">
+                    <div className="slider-header">
+                      <span className="slider-label">Speed</span>
+                      <span className="slider-value">{image.settings.charsPerSecond} chr/s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={MIN_CHARS_PER_SECOND}
+                      max={MAX_CHARS_PER_SECOND}
+                      step={1}
+                      value={image.settings.charsPerSecond}
+                      onChange={(e) => updateSettings({ charsPerSecond: parseInt(e.target.value, 10) })}
+                    />
+                  </div>
+                  <div className="slider-control">
+                    <div className="slider-header">
+                      <span className="slider-label">Lead Out</span>
+                      <span className="slider-value">{image.settings.leadOutSeconds}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={MIN_LEAD_SECONDS}
+                      max={MAX_LEAD_SECONDS}
+                      step={0.5}
+                      value={image.settings.leadOutSeconds}
+                      onChange={(e) => updateSettings({ leadOutSeconds: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  {image.settings.markingMode === "unblur" && (
+                    <div className="slider-control">
+                      <div className="slider-header">
+                        <span className="slider-label">Unblur</span>
+                        <span className="slider-value">{image.settings.unblurSeconds}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={MIN_UNBLUR_SECONDS}
+                        max={MAX_UNBLUR_SECONDS}
+                        step={0.1}
+                        value={image.settings.unblurSeconds}
+                        onChange={(e) => updateSettings({ unblurSeconds: parseFloat(e.target.value) })}
                       />
                     </div>
-                  </div>
-                )}
-
-                {item.isUploading || item.isProcessingOCR ? (
-                  <div className="loading">
-                    <div className="spinner" />
-                    <span>
-                      {item.isUploading
-                        ? "Uploading image..."
-                        : "Processing image with OCR..."}
-                    </span>
-                  </div>
-                ) : item.imagePath ? (
-                  <WordSelector
-                    imageSrc={item.imagePath}
-                    words={item.words}
-                    selectedWords={item.selectedWords}
-                    onSelectionChange={(words) =>
-                      updateItem(item.id, (current) => ({
-                        ...current,
-                        selectedWords: words,
-                      }))
-                    }
-                    zoomBox={item.zoomBox}
-                    onZoomBoxChange={(zoomBox) =>
-                      updateItem(item.id, (current) => ({
-                        ...current,
-                        zoomBox,
-                      }))
-                    }
-                    imageWidth={item.imageWidth}
-                    imageHeight={item.imageHeight}
-                    markingMode={item.settings.markingMode}
-                    highlightColor={selectedColor}
-                  />
-                ) : null}
-
-                <div className="settings-panel">
-                  <div className="settings-section">
-                    <h3 className="settings-section-title">Style</h3>
-                    <div className="settings-row">
-                      <div className="setting-group">
-                        <span className="setting-label">Mode</span>
-                        <div className="mode-toggle">
-                          <button
-                            className={`mode-btn ${
-                              item.settings.markingMode === "highlight" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              updateItemSettings(item.id, {
-                                markingMode: "highlight",
-                                colorIndex: 0,
-                              })
-                            }
-                          >
-                            <span className="mode-icon">◼</span>
-                            Highlight
-                          </button>
-                          <button
-                            className={`mode-btn ${
-                              item.settings.markingMode === "circle" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              updateItemSettings(item.id, {
-                                markingMode: "circle",
-                                colorIndex: 0,
-                              })
-                            }
-                          >
-                            <span className="mode-icon">○</span>
-                            Circle
-                          </button>
-                          <button
-                            className={`mode-btn ${
-                              item.settings.markingMode === "underline" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              updateItemSettings(item.id, {
-                                markingMode: "underline",
-                                colorIndex: 0,
-                              })
-                            }
-                          >
-                            <span className="mode-icon">_</span>
-                            Underline
-                          </button>
-                          <button
-                            className={`mode-btn ${
-                              item.settings.markingMode === "unblur" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              updateItemSettings(item.id, {
-                                markingMode: "unblur",
-                                colorIndex: 0,
-                              })
-                            }
-                          >
-                            <span className="mode-icon">◧</span>
-                            Unblur
-                          </button>
-                          <button
-                            className={`mode-btn ${
-                              item.settings.markingMode === "zoom" ? "active" : ""
-                            }`}
-                            onClick={() =>
-                              updateItemSettings(item.id, {
-                                markingMode: "zoom",
-                              })
-                            }
-                          >
-                            <span className="mode-icon">⊕</span>
-                            Zoom
-                          </button>
-                        </div>
+                  )}
+                  {image.settings.markingMode === "zoom" && (
+                    <div className="slider-control">
+                      <div className="slider-header">
+                        <span className="slider-label">Zoom Duration</span>
+                        <span className="slider-value">{image.settings.zoomDurationSeconds}s</span>
                       </div>
-                      {item.settings.markingMode !== "zoom" && (
-                      <div className="setting-group">
-                        <label className="setting-label" htmlFor={`color-select-${item.id}`}>
-                          {item.settings.markingMode === "highlight" ||
-                          item.settings.markingMode === "unblur"
-                            ? "Highlight"
-                            : "Pen"}{" "}
-                          Color
-                        </label>
-                        <div className="color-select-wrapper">
-                          <span
-                            className="color-preview"
-                            style={{ backgroundColor: selectedColor }}
-                          />
-                          <select
-                            id={`color-select-${item.id}`}
-                            value={colorIndex}
-                            onChange={(e) =>
-                              updateItemSettings(item.id, {
-                                colorIndex: parseInt(e.target.value, 10),
-                              })
-                            }
-                          >
-                            {availableColors.map((color, indexValue) => (
-                              <option key={color.name} value={indexValue}>
-                                {color.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      )}
+                      <input
+                        type="range"
+                        min={MIN_ZOOM_DURATION_SECONDS}
+                        max={MAX_ZOOM_DURATION_SECONDS}
+                        step={0.1}
+                        value={image.settings.zoomDurationSeconds}
+                        onChange={(e) => updateSettings({ zoomDurationSeconds: parseFloat(e.target.value) })}
+                      />
                     </div>
-                  </div>
+                  )}
+                </div>
+              </div>
 
-                  <div className="settings-section">
-                    <h3 className="settings-section-title">Timing</h3>
-                    <div className="settings-grid">
-                      <div className="slider-control">
-                        <div className="slider-header">
-                          <span className="slider-label">Lead In</span>
-                          <span className="slider-value">
-                            {item.settings.leadInSeconds}s
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          id={`lead-in-${item.id}`}
-                          min={MIN_LEAD_SECONDS}
-                          max={MAX_LEAD_SECONDS}
-                          step={0.5}
-                          value={item.settings.leadInSeconds}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              leadInSeconds: parseFloat(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="slider-control">
-                        <div className="slider-header">
-                          <span className="slider-label">Speed</span>
-                          <span className="slider-value">
-                            {item.settings.charsPerSecond} chr/s
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          id={`chars-per-second-${item.id}`}
-                          min={MIN_CHARS_PER_SECOND}
-                          max={MAX_CHARS_PER_SECOND}
-                          step={1}
-                          value={item.settings.charsPerSecond}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              charsPerSecond: parseInt(e.target.value, 10),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="slider-control">
-                        <div className="slider-header">
-                          <span className="slider-label">Lead Out</span>
-                          <span className="slider-value">
-                            {item.settings.leadOutSeconds}s
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          id={`lead-out-${item.id}`}
-                          min={MIN_LEAD_SECONDS}
-                          max={MAX_LEAD_SECONDS}
-                          step={0.5}
-                          value={item.settings.leadOutSeconds}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              leadOutSeconds: parseFloat(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-                      {item.settings.markingMode === "unblur" && (
-                        <div className="slider-control">
-                          <div className="slider-header">
-                            <span className="slider-label">Unblur</span>
-                            <span className="slider-value">
-                              {item.settings.unblurSeconds}s
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            id={`unblur-duration-${item.id}`}
-                            min={MIN_UNBLUR_SECONDS}
-                            max={MAX_UNBLUR_SECONDS}
-                            step={0.1}
-                            value={item.settings.unblurSeconds}
-                            onChange={(e) =>
-                              updateItemSettings(item.id, {
-                                unblurSeconds: parseFloat(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-                      {item.settings.markingMode === "zoom" && (
-                        <div className="slider-control">
-                          <div className="slider-header">
-                            <span className="slider-label">Zoom Duration</span>
-                            <span className="slider-value">
-                              {item.settings.zoomDurationSeconds}s
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            id={`zoom-duration-${item.id}`}
-                            min={MIN_ZOOM_DURATION_SECONDS}
-                            max={MAX_ZOOM_DURATION_SECONDS}
-                            step={0.1}
-                            value={item.settings.zoomDurationSeconds}
-                            onChange={(e) =>
-                              updateItemSettings(item.id, {
-                                zoomDurationSeconds: parseFloat(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="settings-section">
-                    <h3 className="settings-section-title">Effects</h3>
-                    <div className="settings-row">
-                      <div className="setting-group">
-                        <label className="setting-label" htmlFor={`camera-${item.id}`}>
-                          Camera
-                        </label>
-                        <select
-                          id={`camera-${item.id}`}
-                          className="select-input"
-                          value={item.settings.cameraMovement}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              cameraMovement: e.target.value as CameraMovement,
-                            })
-                          }
-                        >
-                          <option value="left-right">Left → Right</option>
-                          <option value="right-left">Right → Left</option>
-                          <option value="up-down">Up → Down</option>
-                          <option value="down-up">Down → Up</option>
-                          <option value="zoom-in">Zoom In</option>
-                          <option value="zoom-out">Zoom Out</option>
-                          <option value="none">None</option>
-                        </select>
-                      </div>
-                      <div className="setting-group">
-                        <label className="setting-label" htmlFor={`enter-${item.id}`}>
-                          Enter
-                        </label>
-                        <select
-                          id={`enter-${item.id}`}
-                          className="select-input"
-                          value={item.settings.enterAnimation}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              enterAnimation: e.target.value as EnterAnimation,
-                            })
-                          }
-                        >
-                          <option value="blur">Blur</option>
-                          <option value="from-bottom">From Bottom</option>
-                          <option value="from-top">From Top</option>
-                          <option value="from-left">From Left</option>
-                          <option value="from-right">From Right</option>
-                          <option value="none">None</option>
-                        </select>
-                      </div>
-                      <div className="setting-group">
-                        <label className="setting-label" htmlFor={`exit-${item.id}`}>
-                          Exit
-                        </label>
-                        <select
-                          id={`exit-${item.id}`}
-                          className="select-input"
-                          value={item.settings.exitAnimation}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              exitAnimation: e.target.value as ExitAnimation,
-                            })
-                          }
-                        >
-                          <option value="blur">Blur</option>
-                          <option value="to-bottom">To Bottom</option>
-                          <option value="to-top">To Top</option>
-                          <option value="to-left">To Left</option>
-                          <option value="to-right">To Right</option>
-                          <option value="none">None</option>
-                        </select>
-                      </div>
-                      <div className="setting-group">
-                        <span className="setting-label">Background</span>
-                        <label className="toggle-switch">
-                          <input
-                            type="checkbox"
-                            checked={item.settings.blurredBackground}
-                            onChange={(e) =>
-                              updateItemSettings(item.id, {
-                                blurredBackground: e.target.checked,
-                              })
-                            }
-                          />
-                          <span className="toggle-slider"></span>
-                          <span className="toggle-label">Blurred BG</span>
-                        </label>
-                      </div>
-                      <div className="setting-group">
-                        <span className="setting-label">Overlay</span>
-                        <label className="toggle-switch">
-                          <input
-                            type="checkbox"
-                            checked={item.settings.vcrEffect}
-                            onChange={(e) =>
-                              updateItemSettings(item.id, {
-                                vcrEffect: e.target.checked,
-                              })
-                            }
-                          />
-                          <span className="toggle-slider"></span>
-                          <span className="toggle-label">VCR Effect</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="settings-section">
-                    <h3 className="settings-section-title">Attribution</h3>
-                    <div className="settings-row">
-                      <div className="setting-group" style={{ flex: 1 }}>
-                        <label className="setting-label" htmlFor={`attribution-${item.id}`}>
-                          Lower Third Text
-                        </label>
-                        <input
-                          type="text"
-                          id={`attribution-${item.id}`}
-                          className="text-input"
-                          placeholder="e.g., via @username or Source: example.com"
-                          value={item.settings.attributionText}
-                          onChange={(e) =>
-                            updateItemSettings(item.id, {
-                              attributionText: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="settings-actions">
-                    <button
-                      className="btn btn-primary btn-generate"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        renderItem(item.id);
-                      }}
-                      disabled={(item.selectedWords.length === 0 && !item.zoomBox) || item.isRendering}
+              <div className="settings-section">
+                <h3 className="settings-section-title">Effects</h3>
+                <div className="settings-row">
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="camera-select">
+                      Camera
+                    </label>
+                    <select
+                      id="camera-select"
+                      className="select-input"
+                      value={image.settings.cameraMovement}
+                      onChange={(e) => updateSettings({ cameraMovement: e.target.value as CameraMovement })}
                     >
-                      {item.isRendering ? (
-                        <>
-                          <span className="btn-spinner"></span>
-                          Rendering...
-                        </>
-                      ) : (
-                        <>Generate Video</>
-                      )}
-                    </button>
+                      <option value="left-right">Left → Right</option>
+                      <option value="right-left">Right → Left</option>
+                      <option value="up-down">Up → Down</option>
+                      <option value="down-up">Down → Up</option>
+                      <option value="zoom-in">Zoom In</option>
+                      <option value="zoom-out">Zoom Out</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="enter-select">
+                      Enter
+                    </label>
+                    <select
+                      id="enter-select"
+                      className="select-input"
+                      value={image.settings.enterAnimation}
+                      onChange={(e) => updateSettings({ enterAnimation: e.target.value as EnterAnimation })}
+                    >
+                      <option value="blur">Blur</option>
+                      <option value="from-bottom">From Bottom</option>
+                      <option value="from-top">From Top</option>
+                      <option value="from-left">From Left</option>
+                      <option value="from-right">From Right</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="exit-select">
+                      Exit
+                    </label>
+                    <select
+                      id="exit-select"
+                      className="select-input"
+                      value={image.settings.exitAnimation}
+                      onChange={(e) => updateSettings({ exitAnimation: e.target.value as ExitAnimation })}
+                    >
+                      <option value="blur">Blur</option>
+                      <option value="to-bottom">To Bottom</option>
+                      <option value="to-top">To Top</option>
+                      <option value="to-left">To Left</option>
+                      <option value="to-right">To Right</option>
+                      <option value="none">None</option>
+                    </select>
+                  </div>
+                  <div className="setting-group">
+                    <span className="setting-label">Background</span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={image.settings.blurredBackground}
+                        onChange={(e) => updateSettings({ blurredBackground: e.target.checked })}
+                      />
+                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">Blurred BG</span>
+                    </label>
+                  </div>
+                  <div className="setting-group">
+                    <span className="setting-label">Overlay</span>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={image.settings.vcrEffect}
+                        onChange={(e) => updateSettings({ vcrEffect: e.target.checked })}
+                      />
+                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">VCR Effect</span>
+                    </label>
                   </div>
                 </div>
-
-                <VideoPreview
-                  videoPath={item.videoPath}
-                  isRendering={item.isRendering}
-                  renderTime={item.renderTime}
-                />
-
-                {item.status && (
-                  <div className={`status ${item.status.type}`}>{item.status.message}</div>
-                )}
               </div>
-            );
-          })}
+
+              <div className="settings-section">
+                <h3 className="settings-section-title">Attribution</h3>
+                <div className="settings-row">
+                  <div className="setting-group" style={{ flex: 1 }}>
+                    <label className="setting-label" htmlFor="attribution-input">
+                      Lower Third Text
+                    </label>
+                    <input
+                      type="text"
+                      id="attribution-input"
+                      className="text-input"
+                      placeholder="e.g., via @username or Source: example.com"
+                      value={image.settings.attributionText}
+                      onChange={(e) => updateSettings({ attributionText: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-actions">
+                <button
+                  className="btn btn-primary btn-generate"
+                  onClick={handleRender}
+                  disabled={!canRender || isRendering}
+                >
+                  {isRendering ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Rendering...
+                    </>
+                  ) : (
+                    <>Generate Video</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="editor-sidebar">
+            <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} />
+          </div>
+
+          {status && <div className={`status editor-status ${status.type}`}>{status.message}</div>}
         </div>
       )}
     </div>
