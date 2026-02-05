@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 const rootDir = path.resolve(import.meta.dir, '../..');
 const uploadsDir = path.join(rootDir, 'public/uploads');
 
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/avif'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const corsHeaders = {
@@ -35,7 +35,7 @@ export async function handleUpload(request: Request): Promise<Response> {
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return jsonResponse(
-        { error: 'Invalid file type. Only PNG, JPEG, and WebP are allowed.' },
+        { error: 'Invalid file type. Only PNG, JPEG, WebP, and AVIF are allowed.' },
         400
       );
     }
