@@ -22,7 +22,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({ value, onChange 
           className={`format-card ${value === id ? 'active' : ''}`}
           onClick={() => onChange(id)}
         >
-          <Icon size={24} />
+          <Icon size={18} />
           <span className="format-label">{label}</span>
           <span className="format-ratio">{ratio}</span>
         </button>
