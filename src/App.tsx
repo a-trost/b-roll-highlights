@@ -441,10 +441,10 @@ function App() {
                       </button>
                     </div>
                   </div>
-                  {image.settings.markingMode !== "zoom" && (
+                  {image.settings.markingMode !== "zoom" && image.settings.markingMode !== "unblur" && (
                     <div className="setting-group">
                       <label className="setting-label" htmlFor="color-select">
-                        {image.settings.markingMode === "highlight" || image.settings.markingMode === "unblur"
+                        {image.settings.markingMode === "highlight"
                           ? "Highlight"
                           : "Pen"}{" "}
                         Color
