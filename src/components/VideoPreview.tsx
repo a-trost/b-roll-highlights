@@ -4,6 +4,7 @@ interface VideoPreviewProps {
   videoPath: string | null;
   isRendering: boolean;
   renderTime: number | null;
+  renderProgress: { label: string; detail: string; value: number } | null;
 }
 
 function formatRenderTime(ms: number): string {
@@ -20,14 +21,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   videoPath,
   isRendering,
   renderTime,
+  renderProgress,
 }) => {
-  if (isRendering) {
+  if (isRendering && renderProgress) {
     return (
       <div className="video-preview">
         <h2>Preview</h2>
-        <div className="loading">
-          <div className="spinner" />
-          <span>Rendering video... This may take a moment.</span>
+        <div className="render-progress-container">
+          <div className="render-progress-content">
+            <span className="render-progress-label">{renderProgress.detail}</span>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${renderProgress.value}%` }} />
+            </div>
+          </div>
         </div>
       </div>
     );

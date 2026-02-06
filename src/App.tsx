@@ -377,18 +377,6 @@ function App() {
               </button>
             </div>
 
-            {progressState && (
-              <div className="progress-panel">
-                <div className="progress-panel-header">
-                  <span className="progress-panel-label">{progressState.label}</span>
-                  <span className="progress-panel-value">{progressState.detail}</span>
-                </div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${progressState.value}%` }} />
-                </div>
-              </div>
-            )}
-
             {isUploading || isProcessingOCR ? (
               <div className="loading">
                 <div className="spinner" />
@@ -689,7 +677,7 @@ function App() {
           </div>
 
           <div className="editor-sidebar">
-            <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} />
+            <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} renderProgress={progressState} />
           </div>
 
           {status && <div className={`status editor-status ${status.type}`}>{status.message}</div>}
