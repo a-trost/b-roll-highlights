@@ -14,6 +14,7 @@ interface WordSelectorProps {
   markingMode: MarkingMode;
   highlightColor: string;
   outputFormat: OutputFormat;
+  onNewImage: () => void;
 }
 
 export const WordSelector: React.FC<WordSelectorProps> = ({
@@ -28,6 +29,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   markingMode,
   highlightColor,
   outputFormat = 'landscape',
+  onNewImage,
 }) => {
   interface WordEntry {
     word: WordBox;
@@ -413,21 +415,33 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   return (
     <div className="word-selector">
       <div className="word-selector-header">
-        <h2>{markingMode === 'zoom' ? 'Draw Zoom Area' : 'Select Words to Highlight'}</h2>
-        <button
-          className="btn-ghost word-selector-clear"
-          type="button"
-          onClick={() => {
-            if (markingMode === 'zoom') {
-              onZoomBoxChange(null);
-            } else {
-              onSelectionChange([]);
-            }
-          }}
-          disabled={markingMode === 'zoom' ? !zoomBox : selectedWords.length === 0}
-        >
-          Clear Selection
-        </button>
+        <div className="word-selector-title">
+          <h2>{markingMode === 'zoom' ? 'Draw Zoom Area' : 'Select Words to Highlight'}</h2>
+          <span className="word-selector-meta">{words.length} words · {selectedWords.length} selected</span>
+        </div>
+        <div className="word-selector-actions">
+          <button
+            className="btn-ghost word-selector-clear"
+            type="button"
+            onClick={() => {
+              if (markingMode === 'zoom') {
+                onZoomBoxChange(null);
+              } else {
+                onSelectionChange([]);
+              }
+            }}
+            disabled={markingMode === 'zoom' ? !zoomBox : selectedWords.length === 0}
+          >
+            Clear Selection
+          </button>
+          <button
+            className="btn-ghost"
+            type="button"
+            onClick={onNewImage}
+          >
+            New Image
+          </button>
+        </div>
       </div>
       <div
         className="image-container"

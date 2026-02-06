@@ -46,6 +46,7 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     unblurSeconds,
     attributionText,
     outputFormat,
+    frameRate,
   } = body;
 
   if (!filename || !backgroundColor) {
@@ -78,6 +79,7 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     vcrEffect: (vcrEffect as boolean) ?? false,
     attributionText: (attributionText as string) || '',
     outputFormat: (outputFormat as OutputFormat) || 'landscape',
+    frameRate: (frameRate as 24 | 30 | 60) || 30,
   };
 }
 

@@ -52,6 +52,7 @@ export type Settings = {
   vcrEffect: boolean;
   attributionText: string;
   outputFormat: OutputFormat;
+  frameRate: 24 | 30 | 60;
 };
 
 type ImageState = {
@@ -89,6 +90,7 @@ const createDefaultSettings = (): Settings => ({
   vcrEffect: false,
   attributionText: "",
   outputFormat: "landscape",
+  frameRate: 30,
 });
 
 const loadState = (): ImageState | null => {
@@ -136,7 +138,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 1,
       charsPerSecond: 15,
       leadOutSeconds: 2,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "left-right",
@@ -145,6 +146,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: false,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -158,7 +160,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 2,
       charsPerSecond: 8,
       leadOutSeconds: 3,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "zoom-in",
@@ -167,6 +168,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: false,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -180,7 +182,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 0.5,
       charsPerSecond: 20,
       leadOutSeconds: 1.5,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "none",
@@ -189,6 +190,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: false,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -202,7 +204,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 1.5,
       charsPerSecond: 12,
       leadOutSeconds: 2,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "up-down",
@@ -211,6 +212,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: true,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -224,7 +226,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 0.5,
       charsPerSecond: 30,
       leadOutSeconds: 1,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "left-right",
@@ -233,6 +234,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: false,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -246,7 +248,6 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 2.5,
       charsPerSecond: 10,
       leadOutSeconds: 3,
-
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "zoom-out",
@@ -255,6 +256,7 @@ const DEFAULT_PRESETS: Preset[] = [
       vcrEffect: false,
       attributionText: "",
       outputFormat: "landscape",
+      frameRate: 30,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -440,6 +442,7 @@ function App() {
           vcrEffect: currentImage.settings.vcrEffect,
           attributionText: currentImage.settings.attributionText,
           outputFormat: currentImage.settings.outputFormat,
+          frameRate: currentImage.settings.frameRate,
         }),
       });
 
@@ -533,10 +536,11 @@ function App() {
 
   const handleLoadPreset = useCallback(
     (preset: Preset) => {
-      // Handle old presets that don't have outputFormat
+      // Handle old presets that don't have outputFormat/frameRate
       const settings: Settings = {
         ...preset.settings,
         outputFormat: preset.settings.outputFormat ?? 'landscape',
+        frameRate: preset.settings.frameRate ?? 30,
       };
       updateSettings(settings);
     },
@@ -621,25 +625,6 @@ function App() {
       ) : (
         <div className="editor-layout">
           <div className="editor-main">
-            <div className="editor-header">
-              <div>
-                <h2 className="editor-title">{image.sourceName}</h2>
-                <div className="editor-meta">
-                  {image.words.length} words · {image.selectedWords.length} selected
-                </div>
-              </div>
-              <button
-                className="btn-ghost"
-                type="button"
-                onClick={() => {
-                  setImage(null);
-                  setStatus(null);
-                }}
-              >
-                New Image
-              </button>
-            </div>
-
             <div className="mode-selector">
               <div className="mode-toggle">
                 <button
@@ -714,6 +699,10 @@ function App() {
                 markingMode={image.settings.markingMode}
                 highlightColor={selectedColor}
                 outputFormat={image.settings.outputFormat}
+                onNewImage={() => {
+                  setImage(null);
+                  setStatus(null);
+                }}
               />
             )}
 
@@ -921,6 +910,8 @@ function App() {
               <FormatSelector
                 value={image.settings.outputFormat}
                 onChange={(format) => updateSettings({ outputFormat: format })}
+                frameRate={image.settings.frameRate}
+                onFrameRateChange={(fps) => updateSettings({ frameRate: fps })}
               />
             </div>
             <PresetsPanel

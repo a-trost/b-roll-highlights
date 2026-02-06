@@ -13,16 +13,16 @@ import {
 
 // Calculate the highlight animation duration based on character count
 // Duration = total characters / charsPerSecond
-function estimateHighlightDuration(props: HighlightProps): number {
+function estimateHighlightDuration(props: HighlightProps, fps: number): number {
   const { selectedWords, charsPerSecond = DEFAULT_CHARS_PER_SECOND, markingMode, zoomDurationSeconds = DEFAULT_ZOOM_DURATION_SECONDS, zoomBox } = props;
 
   // For zoom mode, use the zoom duration
   if (markingMode === "zoom" && zoomBox) {
-    return Math.ceil(zoomDurationSeconds * FPS);
+    return Math.ceil(zoomDurationSeconds * fps);
   }
 
   if (selectedWords.length === 0) {
-    return 60; // Default 2 seconds if no words
+    return fps * 2; // Default 2 seconds if no words
   }
 
   // Count total characters in all selected words
@@ -31,12 +31,12 @@ function estimateHighlightDuration(props: HighlightProps): number {
     0
   );
 
-  // Calculate duration: chars / (chars per second) * FPS = frames
+  // Calculate duration: chars / (chars per second) * fps = frames
   const durationInSeconds = totalCharacters / charsPerSecond;
-  const framesNeeded = Math.ceil(durationInSeconds * FPS);
+  const framesNeeded = Math.ceil(durationInSeconds * fps);
 
-  // Minimum 1 second (30 frames) for very short text
-  return Math.max(30, framesNeeded);
+  // Minimum 1 second for very short text
+  return Math.max(fps, framesNeeded);
 }
 
 export const RemotionRoot: React.FC = () => {
@@ -70,6 +70,7 @@ export const RemotionRoot: React.FC = () => {
           vcrEffect: false,
           attributionText: "",
           outputFormat: "landscape" as const,
+          frameRate: 30 as const,
         }}
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as HighlightProps;
@@ -79,16 +80,17 @@ export const RemotionRoot: React.FC = () => {
             typedProps.leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS;
           const exitAnimation = typedProps.exitAnimation ?? "none";
           const outputFormat = typedProps.outputFormat ?? "landscape";
+          const fps = typedProps.frameRate ?? FPS;
 
           // Calculate lead-in frames (minimum 30 for animation)
-          const leadInFrames = Math.max(30, Math.round(leadInSeconds * FPS));
-          const leadOutFrames = Math.round(leadOutSeconds * FPS);
+          const leadInFrames = Math.max(30, Math.round(leadInSeconds * fps));
+          const leadOutFrames = Math.round(leadOutSeconds * fps);
 
           // Add buffer for slide exit animations so fade completes before video ends
-          const exitBuffer = (exitAnimation !== "blur" && exitAnimation !== "none") ? 15 : 0;
+          const exitBuffer = (exitAnimation !== "blur" && exitAnimation !== "none") ? Math.round(fps / 2) : 0;
 
           // Estimate highlight animation duration
-          const highlightFrames = estimateHighlightDuration(typedProps);
+          const highlightFrames = estimateHighlightDuration(typedProps, fps);
 
           // Total duration = lead-in + highlight animation + lead-out + exit buffer
           const totalFrames = leadInFrames + highlightFrames + leadOutFrames + exitBuffer;
@@ -98,6 +100,7 @@ export const RemotionRoot: React.FC = () => {
 
           return {
             durationInFrames: totalFrames,
+            fps,
             width: dims.width,
             height: dims.height,
             props,

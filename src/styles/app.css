@@ -214,10 +214,28 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  gap: 12px;
+}
+
+.word-selector-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .word-selector-header h2 {
   margin-bottom: 0;
+}
+
+.word-selector-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.word-selector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .word-selector-clear {
@@ -983,7 +1001,7 @@ body {
 .preset-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1088,6 +1106,12 @@ body {
 }
 
 /* Format Selector */
+.format-selector-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .format-selector {
   display: flex;
   gap: 12px;

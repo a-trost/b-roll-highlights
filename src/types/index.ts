@@ -121,6 +121,7 @@ export interface HighlightProps {
   zoomBox?: ZoomBox;
   zoomDurationSeconds?: number;
   outputFormat?: OutputFormat;
+  frameRate?: 24 | 30 | 60;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)
