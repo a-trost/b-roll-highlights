@@ -463,7 +463,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
           width: displayWidth,
           height: displayHeight,
           zIndex: 1,
-          overflow: "hidden",
+          overflow: markingMode === "zoom" ? "visible" : "hidden",
         }}
       >
         {/* Inner div: zoom transform (scale + translate into the selected region) */}
