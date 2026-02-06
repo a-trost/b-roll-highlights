@@ -46,10 +46,16 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     currentY: number;
   }
 
+  interface ZoomMoveState {
+    offsetX: number; // offset from box origin to click point (normalized)
+    offsetY: number;
+  }
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayScale, setDisplayScale] = useState(1);
   const dragStateRef = useRef<DragState | null>(null);
   const zoomDragStateRef = useRef<ZoomDragState | null>(null);
+  const zoomMoveStateRef = useRef<ZoomMoveState | null>(null);
   const [zoomDragPreview, setZoomDragPreview] = useState<ZoomBox | null>(null);
 
   const setDragState = useCallback((next: DragState | null) => {
@@ -308,6 +314,17 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
 
+    // If clicking inside the existing zoom box, start moving it
+    if (zoomBox && x >= zoomBox.x && x <= zoomBox.x + zoomBox.width
+      && y >= zoomBox.y && y <= zoomBox.y + zoomBox.height) {
+      zoomMoveStateRef.current = {
+        offsetX: x - zoomBox.x,
+        offsetY: y - zoomBox.y,
+      };
+      return;
+    }
+
+    // Otherwise, draw a new box
     zoomDragStateRef.current = {
       startX: x,
       startY: y,
@@ -315,11 +332,10 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
       currentY: y,
     };
     setZoomDragPreview(null);
-  }, [markingMode]);
+  }, [markingMode, zoomBox]);
 
   const handleZoomPointerMove = useCallback((e: React.PointerEvent) => {
-    const current = zoomDragStateRef.current;
-    if (!current || markingMode !== 'zoom') return;
+    if (markingMode !== 'zoom') return;
 
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -327,11 +343,37 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
+    // Handle moving an existing box
+    const moveState = zoomMoveStateRef.current;
+    if (moveState && zoomBox) {
+      let newX = x - moveState.offsetX;
+      let newY = y - moveState.offsetY;
+      // Clamp so box stays within bounds
+      newX = Math.max(0, Math.min(1 - zoomBox.width, newX));
+      newY = Math.max(0, Math.min(1 - zoomBox.height, newY));
+      setZoomDragPreview({ ...zoomBox, x: newX, y: newY });
+      return;
+    }
+
+    // Handle drawing a new box
+    const current = zoomDragStateRef.current;
+    if (!current) return;
+
     zoomDragStateRef.current = { ...current, currentX: x, currentY: y };
     setZoomDragPreview(calculateZoomBox(current.startX, current.startY, x, y));
-  }, [markingMode, calculateZoomBox]);
+  }, [markingMode, calculateZoomBox, zoomBox]);
 
   const handleZoomPointerUp = useCallback(() => {
+    // Handle completing a move
+    if (zoomMoveStateRef.current) {
+      if (zoomDragPreview) {
+        onZoomBoxChange(zoomDragPreview);
+      }
+      zoomMoveStateRef.current = null;
+      setZoomDragPreview(null);
+      return;
+    }
+
     const current = zoomDragStateRef.current;
     if (!current || markingMode !== 'zoom') {
       zoomDragStateRef.current = null;
@@ -347,7 +389,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
 
     zoomDragStateRef.current = null;
     setZoomDragPreview(null);
-  }, [markingMode, calculateZoomBox, onZoomBoxChange]);
+  }, [markingMode, calculateZoomBox, onZoomBoxChange, zoomDragPreview]);
 
   useEffect(() => {
     if (markingMode !== 'zoom') return;
@@ -408,7 +450,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
               border: '3px solid rgba(59, 130, 246, 0.9)',
               backgroundColor: 'rgba(59, 130, 246, 0.15)',
               boxSizing: 'border-box',
-              pointerEvents: 'none',
+              cursor: zoomMoveStateRef.current ? 'grabbing' : 'grab',
             }}
           />
         )}
