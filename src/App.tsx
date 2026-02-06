@@ -25,9 +25,6 @@ import {
   DEFAULT_CHARS_PER_SECOND,
   MIN_CHARS_PER_SECOND,
   MAX_CHARS_PER_SECOND,
-  DEFAULT_UNBLUR_SECONDS,
-  MIN_UNBLUR_SECONDS,
-  MAX_UNBLUR_SECONDS,
   DEFAULT_ZOOM_DURATION_SECONDS,
   MIN_ZOOM_DURATION_SECONDS,
   MAX_ZOOM_DURATION_SECONDS,
@@ -47,7 +44,6 @@ export type Settings = {
   leadInSeconds: number;
   charsPerSecond: number;
   leadOutSeconds: number;
-  unblurSeconds: number;
   zoomDurationSeconds: number;
   blurredBackground: boolean;
   cameraMovement: CameraMovement;
@@ -85,7 +81,6 @@ const createDefaultSettings = (): Settings => ({
   leadInSeconds: DEFAULT_LEAD_IN_SECONDS,
   charsPerSecond: DEFAULT_CHARS_PER_SECOND,
   leadOutSeconds: DEFAULT_LEAD_OUT_SECONDS,
-  unblurSeconds: DEFAULT_UNBLUR_SECONDS,
   zoomDurationSeconds: DEFAULT_ZOOM_DURATION_SECONDS,
   blurredBackground: false,
   cameraMovement: "left-right",
@@ -141,7 +136,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 1,
       charsPerSecond: 15,
       leadOutSeconds: 2,
-      unblurSeconds: 0.6,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "left-right",
@@ -163,7 +158,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 2,
       charsPerSecond: 8,
       leadOutSeconds: 3,
-      unblurSeconds: 1.2,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "zoom-in",
@@ -185,7 +180,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 0.5,
       charsPerSecond: 20,
       leadOutSeconds: 1.5,
-      unblurSeconds: 0.6,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "none",
@@ -207,7 +202,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 1.5,
       charsPerSecond: 12,
       leadOutSeconds: 2,
-      unblurSeconds: 0.6,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "up-down",
@@ -229,7 +224,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 0.5,
       charsPerSecond: 30,
       leadOutSeconds: 1,
-      unblurSeconds: 0.6,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "left-right",
@@ -251,7 +246,7 @@ const DEFAULT_PRESETS: Preset[] = [
       leadInSeconds: 2.5,
       charsPerSecond: 10,
       leadOutSeconds: 3,
-      unblurSeconds: 0.6,
+
       zoomDurationSeconds: 1.5,
       blurredBackground: false,
       cameraMovement: "zoom-out",
@@ -443,7 +438,6 @@ function App() {
           enterAnimation: currentImage.settings.enterAnimation,
           exitAnimation: currentImage.settings.exitAnimation,
           vcrEffect: currentImage.settings.vcrEffect,
-          unblurSeconds: currentImage.settings.unblurSeconds,
           attributionText: currentImage.settings.attributionText,
           outputFormat: currentImage.settings.outputFormat,
         }),
@@ -787,22 +781,6 @@ function App() {
                       onChange={(e) => updateSettings({ leadOutSeconds: parseFloat(e.target.value) })}
                     />
                   </div>
-                  {image.settings.markingMode === "unblur" && (
-                    <div className="slider-control">
-                      <div className="slider-header">
-                        <span className="slider-label">Unblur</span>
-                        <span className="slider-value">{image.settings.unblurSeconds}s</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={MIN_UNBLUR_SECONDS}
-                        max={MAX_UNBLUR_SECONDS}
-                        step={0.1}
-                        value={image.settings.unblurSeconds}
-                        onChange={(e) => updateSettings({ unblurSeconds: parseFloat(e.target.value) })}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -865,28 +843,32 @@ function App() {
                     </select>
                   </div>
                   <div className="setting-group">
-                    <span className="setting-label">Background</span>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={image.settings.blurredBackground}
-                        onChange={(e) => updateSettings({ blurredBackground: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                      <span className="toggle-label">Blurred Image</span>
+                    <label className="setting-label" htmlFor="background-select">
+                      Background
                     </label>
+                    <select
+                      id="background-select"
+                      className="select-input"
+                      value={image.settings.blurredBackground ? "blurred" : "dominant"}
+                      onChange={(e) => updateSettings({ blurredBackground: e.target.value === "blurred" })}
+                    >
+                      <option value="dominant">Dominant Color</option>
+                      <option value="blurred">Blurred Image</option>
+                    </select>
                   </div>
                   <div className="setting-group">
-                    <span className="setting-label">Overlay</span>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={image.settings.vcrEffect}
-                        onChange={(e) => updateSettings({ vcrEffect: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                      <span className="toggle-label">VCR Effect</span>
+                    <label className="setting-label" htmlFor="overlay-select">
+                      Overlay
                     </label>
+                    <select
+                      id="overlay-select"
+                      className="select-input"
+                      value={image.settings.vcrEffect ? "vcr" : "none"}
+                      onChange={(e) => updateSettings({ vcrEffect: e.target.value === "vcr" })}
+                    >
+                      <option value="none">None</option>
+                      <option value="vcr">VCR Effect</option>
+                    </select>
                   </div>
                 </div>
               </div>

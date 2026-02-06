@@ -497,9 +497,9 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
                 borderRadius: '0px',
               };
             } else if (markingMode === 'unblur') {
-              bgColor = 'rgba(255, 255, 255, 0.12)';
+              bgColor = 'rgba(99, 102, 241, 0.25)';
               borderStyle = {
-                borderColor: highlightColor,
+                borderColor: 'rgb(99, 102, 241)',
                 borderWidth: 2,
                 borderStyle: 'solid',
                 borderRadius: '2px',

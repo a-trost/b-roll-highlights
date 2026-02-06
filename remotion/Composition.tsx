@@ -41,7 +41,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     leadInSeconds = DEFAULT_LEAD_IN_SECONDS,
     charsPerSecond = DEFAULT_CHARS_PER_SECOND,
     leadOutSeconds: _leadOutSeconds = DEFAULT_LEAD_OUT_SECONDS,
-    unblurSeconds = DEFAULT_UNBLUR_SECONDS,
+    unblurSeconds: _unblurSeconds = DEFAULT_UNBLUR_SECONDS,
     zoomBox,
     zoomDurationSeconds = DEFAULT_ZOOM_DURATION_SECONDS,
     blurredBackground = false,
@@ -376,7 +376,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   // Highlight starts after lead-in period (minimum 30 frames for blur to clear)
   const highlightStartFrame = Math.max(30, leadInFrames);
   const highlightFrame = Math.max(0, frame - highlightStartFrame);
-  const unblurDurationFrames = Math.max(1, Math.round(unblurSeconds * FPS));
+  const unblurDurationFrames = totalHighlightFrames;
   const unblurEndFrame = highlightStartFrame + unblurDurationFrames;
   const unblurProgress = interpolate(
     frame,
