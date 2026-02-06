@@ -453,20 +453,30 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
         />
       )}
 
+      {/* Outer div: camera movement (3D rotations + scale) and enter/exit animations */}
       <div
         style={{
-          transform: markingMode === "zoom" && zoomBox
-            ? `scale(${zoomScale}) translate(${zoomTranslateX}%, ${zoomTranslateY}%) translate(${translateX}px, ${translateY}px)`
-            : `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+          transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translate(${translateX}px, ${translateY}px)`,
           filter: blur > 0 ? `blur(${blur}px)` : "none",
           opacity,
           position: "relative",
           width: displayWidth,
           height: displayHeight,
           zIndex: 1,
-          overflow: markingMode === "zoom" ? "visible" : "hidden",
+          overflow: "hidden",
         }}
       >
+        {/* Inner div: zoom transform (scale + translate into the selected region) */}
+        <div
+          style={{
+            transform: markingMode === "zoom" && zoomBox
+              ? `scale(${zoomScale}) translate(${zoomTranslateX}%, ${zoomTranslateY}%)`
+              : undefined,
+            width: displayWidth,
+            height: displayHeight,
+            position: "relative",
+          }}
+        >
         {/* Highlighter layer - behind the image text (only for highlight mode) */}
         {markingMode === "highlight" && (
           <RoughHighlighter
@@ -566,6 +576,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
             isDarkMode={isDarkBackground(backgroundColor)}
           />
         )}
+        </div>
       </div>
 
       {/* VCR Effect overlay - covers entire viewport */}
