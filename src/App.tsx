@@ -1,13 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Sparkles, Highlighter, Circle, Underline, Focus, ZoomIn } from "lucide-react";
 import { useFavicon } from "./hooks/useFavicon";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
 import { VideoPreview } from "./components/VideoPreview";
+import { PresetsPanel } from "./components/PresetsPanel";
 import type {
   WordBox,
   OCRResult,
   UploadResponse,
-  RenderResponse,
   MarkingMode,
   CameraMovement,
   EnterAnimation,
@@ -38,7 +39,7 @@ type Status = {
   message: string;
 } | null;
 
-type Settings = {
+export type Settings = {
   colorIndex: number;
   markingMode: MarkingMode;
   leadInSeconds: number;
@@ -108,12 +109,169 @@ const saveState = (image: ImageState | null) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ image }));
 };
 
+export type Preset = {
+  id: string;
+  name: string;
+  settings: Settings;
+  createdAt: number;
+  updatedAt: number;
+};
+
+const PRESETS_STORAGE_KEY = "broll-presets-v1";
+
+const DEFAULT_PRESETS: Preset[] = [
+  {
+    id: "preset-classic-highlight",
+    name: "Classic Highlight",
+    settings: {
+      colorIndex: 0,
+      markingMode: "highlight",
+      leadInSeconds: 1,
+      charsPerSecond: 15,
+      leadOutSeconds: 2,
+      unblurSeconds: 0.6,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "left-right",
+      enterAnimation: "blur",
+      exitAnimation: "none",
+      vcrEffect: false,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: "preset-slow-reveal",
+    name: "Slow Reveal",
+    settings: {
+      colorIndex: 0,
+      markingMode: "unblur",
+      leadInSeconds: 2,
+      charsPerSecond: 8,
+      leadOutSeconds: 3,
+      unblurSeconds: 1.2,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "zoom-in",
+      enterAnimation: "blur",
+      exitAnimation: "blur",
+      vcrEffect: false,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: "preset-red-pen-editor",
+    name: "Red Pen Editor",
+    settings: {
+      colorIndex: 0,
+      markingMode: "circle",
+      leadInSeconds: 0.5,
+      charsPerSecond: 20,
+      leadOutSeconds: 1.5,
+      unblurSeconds: 0.6,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "none",
+      enterAnimation: "none",
+      exitAnimation: "none",
+      vcrEffect: false,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: "preset-retro-vhs",
+    name: "Retro VHS",
+    settings: {
+      colorIndex: 2,
+      markingMode: "highlight",
+      leadInSeconds: 1.5,
+      charsPerSecond: 12,
+      leadOutSeconds: 2,
+      unblurSeconds: 0.6,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "up-down",
+      enterAnimation: "from-bottom",
+      exitAnimation: "to-top",
+      vcrEffect: true,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: "preset-quick-underline",
+    name: "Quick Underline",
+    settings: {
+      colorIndex: 1,
+      markingMode: "underline",
+      leadInSeconds: 0.5,
+      charsPerSecond: 30,
+      leadOutSeconds: 1,
+      unblurSeconds: 0.6,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "left-right",
+      enterAnimation: "from-left",
+      exitAnimation: "to-right",
+      vcrEffect: false,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+  {
+    id: "preset-cinematic",
+    name: "Cinematic",
+    settings: {
+      colorIndex: 3,
+      markingMode: "highlight",
+      leadInSeconds: 2.5,
+      charsPerSecond: 10,
+      leadOutSeconds: 3,
+      unblurSeconds: 0.6,
+      zoomDurationSeconds: 1.5,
+      blurredBackground: false,
+      cameraMovement: "zoom-out",
+      enterAnimation: "blur",
+      exitAnimation: "blur",
+      vcrEffect: false,
+      attributionText: "",
+    },
+    createdAt: 0,
+    updatedAt: 0,
+  },
+];
+
+const loadPresets = (): Preset[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
+    if (!raw) return DEFAULT_PRESETS;
+    return JSON.parse(raw) as Preset[];
+  } catch {
+    return DEFAULT_PRESETS;
+  }
+};
+
+const savePresets = (presets: Preset[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+};
+
 function App() {
   const [image, setImage] = useState<ImageState | null>(() => loadState());
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState<{ value: number; message: string } | null>(null);
   const [status, setStatus] = useState<Status>(null);
+  const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
   const imageRef = useRef(image);
 
   useEffect(() => {
@@ -123,6 +281,10 @@ function App() {
   useEffect(() => {
     saveState(image);
   }, [image]);
+
+  useEffect(() => {
+    savePresets(presets);
+  }, [presets]);
 
   const hasVideo = Boolean(image?.videoPath);
   const canRender = image && (image.selectedWords.length > 0 || image.zoomBox !== null);
@@ -237,11 +399,12 @@ function App() {
     const { selectedColor } = getColors();
 
     setIsRendering(true);
-    setStatus({ type: "info", message: "Rendering video... This may take a moment." });
+    setRenderProgress({ value: 0, message: "Starting render..." });
+    setStatus({ type: "info", message: "Starting render..." });
 
     const startTime = Date.now();
     try {
-      const res = await fetch("/api/render", {
+      const res = await fetch("/api/render-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -271,17 +434,53 @@ function App() {
         throw new Error("Render failed");
       }
 
-      const data: RenderResponse = await res.json();
-      setImage((prev) =>
-        prev
-          ? {
-              ...prev,
-              videoPath: data.videoPath,
-              renderTime: Date.now() - startTime,
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let videoPath: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        const lines = text.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              setRenderProgress({ value: data.progress, message: data.message });
+              setStatus({ type: "info", message: "Rendering..." });
+
+              if (data.videoPath) {
+                videoPath = data.videoPath;
+              }
+
+              if (data.stage === "error") {
+                throw new Error(data.message);
+              }
+            } catch (e) {
+              if (e instanceof SyntaxError) continue;
+              throw e;
             }
-          : null
-      );
-      setStatus({ type: "success", message: "Video rendered successfully!" });
+          }
+        }
+      }
+
+      if (videoPath) {
+        setImage((prev) =>
+          prev
+            ? {
+                ...prev,
+                videoPath,
+                renderTime: Date.now() - startTime,
+              }
+            : null
+        );
+        setStatus({ type: "success", message: "Video rendered successfully!" });
+      }
     } catch (error) {
       setStatus({
         type: "error",
@@ -289,6 +488,7 @@ function App() {
       });
     } finally {
       setIsRendering(false);
+      setRenderProgress(null);
     }
   }, [getColors]);
 
@@ -303,6 +503,48 @@ function App() {
     );
   }, []);
 
+  const handleSavePreset = useCallback(
+    (name: string) => {
+      if (!image) return;
+      const preset: Preset = {
+        id: crypto.randomUUID(),
+        name,
+        settings: { ...image.settings },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setPresets((prev) => [...prev, preset]);
+    },
+    [image]
+  );
+
+  const handleLoadPreset = useCallback(
+    (preset: Preset) => {
+      updateSettings(preset.settings);
+    },
+    [updateSettings]
+  );
+
+  const handleOverwritePreset = useCallback(
+    (id: string) => {
+      if (!image) return;
+      setPresets((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, settings: { ...image.settings }, updatedAt: Date.now() } : p
+        )
+      );
+    },
+    [image]
+  );
+
+  const handleRenamePreset = useCallback((id: string, newName: string) => {
+    setPresets((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
+  }, []);
+
+  const handleDeletePreset = useCallback((id: string) => {
+    setPresets((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const getProgressState = useCallback(() => {
     if (isUploading) {
       return { label: "Uploading", detail: "Uploading image", value: 20 };
@@ -310,11 +552,14 @@ function App() {
     if (isProcessingOCR) {
       return { label: "OCR", detail: "Processing text", value: 45 };
     }
+    if (isRendering && renderProgress) {
+      return { label: "Rendering", detail: renderProgress.message, value: renderProgress.value };
+    }
     if (isRendering) {
-      return { label: "Rendering", detail: "Rendering video", value: 80 };
+      return { label: "Rendering", detail: "Starting...", value: 0 };
     }
     return null;
-  }, [isUploading, isProcessingOCR, isRendering]);
+  }, [isUploading, isProcessingOCR, isRendering, renderProgress]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -346,15 +591,15 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-logo">✦</div>
-        <h1>B-Roll Highlights</h1>
+        <div className="app-header-left">
+          <div className="app-logo"><Sparkles size={16} fill="currentColor" /></div>
+          <h1>B-Magic</h1>
+        </div>
+        {status && <div className={`status status-header ${status.type}`}>{status.message}</div>}
       </header>
 
       {!image ? (
-        <>
-          <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
-          {status && <div className={`status ${status.type}`}>{status.message}</div>}
-        </>
+        <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
       ) : (
         <div className="editor-layout">
           <div className="editor-main">
@@ -375,6 +620,62 @@ function App() {
               >
                 New Image
               </button>
+            </div>
+
+            <div className="mode-selector">
+              <div className="mode-toggle">
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "highlight" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "highlight", colorIndex: 0 })}
+                >
+                  <Highlighter size={16} />
+                  Highlight
+                </button>
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "circle" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "circle", colorIndex: 0 })}
+                >
+                  <Circle size={16} />
+                  Circle
+                </button>
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "underline" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "underline", colorIndex: 0 })}
+                >
+                  <Underline size={16} />
+                  Underline
+                </button>
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "unblur" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "unblur", colorIndex: 0 })}
+                >
+                  <Focus size={16} />
+                  Unblur
+                </button>
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "zoom" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "zoom" })}
+                >
+                  <ZoomIn size={16} />
+                  Zoom
+                </button>
+              </div>
+              {image.settings.markingMode !== "zoom" && image.settings.markingMode !== "unblur" && (
+                <div className="mode-color-picker">
+                  <span className="color-preview" style={{ backgroundColor: selectedColor }} />
+                  <select
+                    id="color-select"
+                    value={colorIndex}
+                    onChange={(e) => updateSettings({ colorIndex: parseInt(e.target.value, 10) })}
+                  >
+                    {availableColors.map((color, idx) => (
+                      <option key={color.name} value={idx}>
+                        {color.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {isUploading || isProcessingOCR ? (
@@ -398,76 +699,6 @@ function App() {
             )}
 
             <div className="settings-panel">
-              <div className="settings-section">
-                <h3 className="settings-section-title">Style</h3>
-                <div className="settings-row">
-                  <div className="setting-group">
-                    <span className="setting-label">Mode</span>
-                    <div className="mode-toggle">
-                      <button
-                        className={`mode-btn ${image.settings.markingMode === "highlight" ? "active" : ""}`}
-                        onClick={() => updateSettings({ markingMode: "highlight", colorIndex: 0 })}
-                      >
-                        <span className="mode-icon">◼</span>
-                        Highlight
-                      </button>
-                      <button
-                        className={`mode-btn ${image.settings.markingMode === "circle" ? "active" : ""}`}
-                        onClick={() => updateSettings({ markingMode: "circle", colorIndex: 0 })}
-                      >
-                        <span className="mode-icon">○</span>
-                        Circle
-                      </button>
-                      <button
-                        className={`mode-btn ${image.settings.markingMode === "underline" ? "active" : ""}`}
-                        onClick={() => updateSettings({ markingMode: "underline", colorIndex: 0 })}
-                      >
-                        <span className="mode-icon">_</span>
-                        Underline
-                      </button>
-                      <button
-                        className={`mode-btn ${image.settings.markingMode === "unblur" ? "active" : ""}`}
-                        onClick={() => updateSettings({ markingMode: "unblur", colorIndex: 0 })}
-                      >
-                        <span className="mode-icon">◧</span>
-                        Unblur
-                      </button>
-                      <button
-                        className={`mode-btn ${image.settings.markingMode === "zoom" ? "active" : ""}`}
-                        onClick={() => updateSettings({ markingMode: "zoom" })}
-                      >
-                        <span className="mode-icon">⊕</span>
-                        Zoom
-                      </button>
-                    </div>
-                  </div>
-                  {image.settings.markingMode !== "zoom" && image.settings.markingMode !== "unblur" && (
-                    <div className="setting-group">
-                      <label className="setting-label" htmlFor="color-select">
-                        {image.settings.markingMode === "highlight"
-                          ? "Highlight"
-                          : "Pen"}{" "}
-                        Color
-                      </label>
-                      <div className="color-select-wrapper">
-                        <span className="color-preview" style={{ backgroundColor: selectedColor }} />
-                        <select
-                          id="color-select"
-                          value={colorIndex}
-                          onChange={(e) => updateSettings({ colorIndex: parseInt(e.target.value, 10) })}
-                        >
-                          {availableColors.map((color, idx) => (
-                            <option key={color.name} value={idx}>
-                              {color.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <div className="settings-section">
                 <h3 className="settings-section-title">Timing</h3>
                 <div className="settings-grid">
@@ -678,9 +909,15 @@ function App() {
 
           <div className="editor-sidebar">
             <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} renderProgress={progressState} />
+            <PresetsPanel
+              presets={presets}
+              onSave={handleSavePreset}
+              onLoad={handleLoadPreset}
+              onOverwrite={handleOverwritePreset}
+              onRename={handleRenamePreset}
+              onDelete={handleDeletePreset}
+            />
           </div>
-
-          {status && <div className={`status editor-status ${status.type}`}>{status.message}</div>}
         </div>
       )}
     </div>

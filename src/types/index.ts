@@ -20,6 +20,7 @@ export const HIGHLIGHT_COLORS_LIGHT: HighlightColor[] = [
   { name: "Blue", value: "rgba(0, 191, 255, 0.3)" },
   { name: "Orange", value: "rgba(255, 165, 0, 0.3)" },
   { name: "Purple", value: "rgba(186, 85, 211, 0.3)" },
+  { name: "Red", value: "rgba(239, 68, 68, 0.3)" },
 ];
 
 // Dark mode colors (higher opacity, slightly muted for dark backgrounds)
@@ -31,6 +32,7 @@ export const HIGHLIGHT_COLORS_DARK: HighlightColor[] = [
   { name: "Blue", value: "rgba(0, 191, 255, 0.3)" },
   { name: "Orange", value: "rgba(255, 165, 0, 0.3)" },
   { name: "Purple", value: "rgba(186, 85, 211, 0.3)" },
+  { name: "Red", value: "rgba(239, 68, 68, 0.3)" },
 ];
 
 // Legacy export for backwards compatibility

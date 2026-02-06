@@ -45,7 +45,7 @@ export function useFavicon(isRendering: boolean, hasVideo: boolean) {
     setEmojiFavicon(FAVICON_EMOJIS[state]);
 
     // Also update the title for additional visibility
-    const baseTitle = "B-Roll Highlights";
+    const baseTitle = "B-Magic";
     if (isRendering) {
       document.title = `Rendering... | ${baseTitle}`;
     } else if (hasVideo) {

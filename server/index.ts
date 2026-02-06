@@ -1,7 +1,7 @@
 import path from 'path';
 import { handleUpload } from './routes/upload';
 import { handleOCR } from './routes/ocr';
-import { handleRender } from './routes/render';
+import { handleRender, handleRenderStream } from './routes/render';
 
 const rootDir = path.resolve(import.meta.dir, '..');
 const PORT = 3001;
@@ -71,6 +71,10 @@ const server = Bun.serve({
 
     if (pathname === '/api/render' && request.method === 'POST') {
       return handleRender(request);
+    }
+
+    if (pathname === '/api/render-stream' && request.method === 'POST') {
+      return handleRenderStream(request);
     }
 
     // 404 for unmatched routes

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-B-Roll Highlights converts static images with text into animated highlight videos. Users upload an image, OCR extracts text, users select words to highlight, and the system generates a video with animated highlight effects.
+B-Magic converts static images with text into animated highlight videos. Users upload an image, OCR extracts text, users select words to highlight, and the system generates a video with animated highlight effects.
 
 ## Commands
 

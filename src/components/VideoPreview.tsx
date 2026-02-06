@@ -1,4 +1,5 @@
 import React from 'react';
+import { Play, Download } from 'lucide-react';
 
 interface VideoPreviewProps {
   videoPath: string | null;
@@ -45,9 +46,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <h2>Preview</h2>
         <div className="placeholder">
           <div className="placeholder-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
+            <Play size={24} strokeWidth={1.5} />
           </div>
           <p>Select words and generate to preview your video</p>
         </div>
@@ -71,6 +70,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           download
           className="download-link"
         >
+          <Download size={14} />
           Download Video
           <span className="keyboard-shortcut">⌘S</span>
         </a>

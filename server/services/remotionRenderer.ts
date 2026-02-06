@@ -9,6 +9,13 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../..');
 
 let bundleLocation: string | null = null;
+let isBundling = false;
+
+export type RenderProgress = {
+  stage: 'bundling' | 'composing' | 'rendering' | 'done' | 'error';
+  progress: number; // 0-100
+  message: string;
+};
 
 function generateFilename(props: HighlightProps): string {
   const words = props.selectedWords.map((w) => w.text).join("-");
@@ -21,10 +28,22 @@ function generateFilename(props: HighlightProps): string {
   return `Highlight-${sanitized || "video"}-${timestamp}.mp4`;
 }
 
-async function ensureBundle(): Promise<string> {
+async function ensureBundle(onProgress?: (p: RenderProgress) => void): Promise<string> {
   if (bundleLocation) {
     return bundleLocation;
   }
+
+  // Prevent concurrent bundling
+  if (isBundling) {
+    // Wait for bundling to complete
+    while (isBundling) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (bundleLocation) return bundleLocation;
+  }
+
+  isBundling = true;
+  onProgress?.({ stage: 'bundling', progress: 5, message: 'Bundling Remotion project...' });
 
   console.log('Bundling Remotion project...');
   bundleLocation = await bundle({
@@ -33,13 +52,17 @@ async function ensureBundle(): Promise<string> {
   });
   console.log('Bundle created at:', bundleLocation);
 
+  isBundling = false;
   return bundleLocation;
 }
 
 export async function renderHighlightVideo(
-  props: HighlightProps
+  props: HighlightProps,
+  onProgress?: (p: RenderProgress) => void
 ): Promise<string> {
-  const bundlePath = await ensureBundle();
+  const bundlePath = await ensureBundle(onProgress);
+
+  onProgress?.({ stage: 'composing', progress: 15, message: 'Preparing composition...' });
 
   const outputFileName = generateFilename(props);
   const outputPath = path.join(rootDir, 'output', outputFileName);
@@ -53,6 +76,8 @@ export async function renderHighlightVideo(
     inputProps,
   });
 
+  onProgress?.({ stage: 'rendering', progress: 20, message: 'Rendering frames...' });
+
   console.log('Rendering video...');
   await renderMedia({
     composition,
@@ -60,7 +85,18 @@ export async function renderHighlightVideo(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps,
+    onProgress: ({ progress }) => {
+      // progress is 0-1, map to 20-95 range
+      const pct = Math.round(20 + progress * 75);
+      onProgress?.({
+        stage: 'rendering',
+        progress: pct,
+        message: `Rendering: ${Math.round(progress * 100)}%`
+      });
+    },
   });
+
+  onProgress?.({ stage: 'done', progress: 100, message: 'Complete!' });
 
   console.log('Video rendered to:', outputPath);
   return `/output/${outputFileName}`;

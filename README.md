@@ -1,4 +1,4 @@
-# B-Roll Highlights
+# B-Magic
 
 Convert static images with text into animated highlight videos. Upload an image, let OCR extract the text, select words to highlight, and generate a video with hand-drawn style animations.
 
