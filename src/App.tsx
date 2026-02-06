@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Sparkles, Highlighter, Circle, Underline, Focus, ZoomIn } from "lucide-react";
+import { WandSparkles, Highlighter, Circle, Underline, Focus, ZoomIn } from "lucide-react";
 import { useFavicon } from "./hooks/useFavicon";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
@@ -610,7 +610,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-logo"><Sparkles size={20} fill="currentColor" /></div>
+          <div className="app-logo"><WandSparkles size={20} /></div>
           <h1>B-Magic</h1>
         </div>
         {status && <div className={`status status-header ${status.type}`}>{status.message}</div>}
