@@ -610,7 +610,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-logo"><Sparkles size={16} fill="currentColor" /></div>
+          <div className="app-logo"><Sparkles size={20} fill="currentColor" /></div>
           <h1>B-Magic</h1>
         </div>
         {status && <div className={`status status-header ${status.type}`}>{status.message}</div>}
