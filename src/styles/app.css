@@ -1077,3 +1077,106 @@ body {
   color: var(--text-tertiary);
   font-size: 12px;
 }
+
+/* Format Selector */
+.format-selector {
+  display: flex;
+  gap: 12px;
+}
+
+.format-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-tertiary);
+}
+
+.format-card:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.format-card.active {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+.format-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.format-ratio {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.format-card.active .format-ratio {
+  color: var(--text-secondary);
+}
+
+/* Crop Overlay */
+.crop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.crop-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.crop-region {
+  position: absolute;
+  border: 2px dashed var(--accent);
+  box-sizing: border-box;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.crop-region:active {
+  cursor: grabbing;
+}
+
+.crop-region-inner {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.crop-auto-center {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  pointer-events: auto;
+}
+
+.crop-auto-center:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}

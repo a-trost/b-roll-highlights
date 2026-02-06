@@ -14,7 +14,9 @@ import type {
   EnterAnimation,
   ExitAnimation,
   ZoomBox,
+  OutputFormat,
 } from "./types";
+import { FormatSelector } from "./components/FormatSelector";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -53,6 +55,7 @@ export type Settings = {
   exitAnimation: ExitAnimation;
   vcrEffect: boolean;
   attributionText: string;
+  outputFormat: OutputFormat;
 };
 
 type ImageState = {
@@ -90,6 +93,7 @@ const createDefaultSettings = (): Settings => ({
   exitAnimation: "none",
   vcrEffect: false,
   attributionText: "",
+  outputFormat: "landscape",
 });
 
 const loadState = (): ImageState | null => {
@@ -98,7 +102,15 @@ const loadState = (): ImageState | null => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredState;
-    return parsed.image ?? null;
+    if (!parsed.image) return null;
+    // Ensure settings have all required fields (handles old saved state)
+    return {
+      ...parsed.image,
+      settings: {
+        ...createDefaultSettings(),
+        ...parsed.image.settings,
+      },
+    };
   } catch {
     return null;
   }
@@ -137,6 +149,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "none",
       vcrEffect: false,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -158,6 +171,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "blur",
       vcrEffect: false,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -179,6 +193,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "none",
       vcrEffect: false,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -200,6 +215,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "to-top",
       vcrEffect: true,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -221,6 +237,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "to-right",
       vcrEffect: false,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -242,6 +259,7 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "blur",
       vcrEffect: false,
       attributionText: "",
+      outputFormat: "landscape",
     },
     createdAt: 0,
     updatedAt: 0,
@@ -427,6 +445,7 @@ function App() {
           vcrEffect: currentImage.settings.vcrEffect,
           unblurSeconds: currentImage.settings.unblurSeconds,
           attributionText: currentImage.settings.attributionText,
+          outputFormat: currentImage.settings.outputFormat,
         }),
       });
 
@@ -520,7 +539,12 @@ function App() {
 
   const handleLoadPreset = useCallback(
     (preset: Preset) => {
-      updateSettings(preset.settings);
+      // Handle old presets that don't have outputFormat
+      const settings: Settings = {
+        ...preset.settings,
+        outputFormat: preset.settings.outputFormat ?? 'landscape',
+      };
+      updateSettings(settings);
     },
     [updateSettings]
   );
@@ -695,6 +719,7 @@ function App() {
                 imageHeight={image.imageHeight}
                 markingMode={image.settings.markingMode}
                 highlightColor={selectedColor}
+                outputFormat={image.settings.outputFormat}
               />
             )}
 
@@ -909,6 +934,13 @@ function App() {
 
           <div className="editor-sidebar">
             <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} renderProgress={progressState} />
+            <div className="settings-section">
+              <h3 className="settings-section-title">Output Format</h3>
+              <FormatSelector
+                value={image.settings.outputFormat}
+                onChange={(format) => updateSettings({ outputFormat: format })}
+              />
+            </div>
             <PresetsPanel
               presets={presets}
               onSave={handleSavePreset}

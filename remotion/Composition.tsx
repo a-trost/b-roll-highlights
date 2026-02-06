@@ -16,7 +16,9 @@ import {
   DEFAULT_ZOOM_DURATION_SECONDS,
   FPS,
   isDarkBackground,
+  OUTPUT_DIMENSIONS,
 } from "../src/types";
+import type { OutputFormat } from "../src/types";
 import { RoughHighlighter } from "./components/RoughHighlighter";
 import { SvgCircler } from "./components/SvgCircler";
 import { SvgUnderliner } from "./components/SvgUnderliner";
@@ -48,6 +50,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     exitAnimation = "none" as ExitAnimation,
     vcrEffect = false,
     attributionText = "",
+    outputFormat = "landscape" as OutputFormat,
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
@@ -391,9 +394,8 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
   const unblurBlurAmount = 6;
   const unblurOverlayBlur = unblurBlurAmount * (1 - unblurProgress);
 
-  // Calculate image dimensions to fit within composition while maintaining aspect ratio
-  const compositionWidth = 1920;
-  const compositionHeight = 1080;
+  // Get composition dimensions based on output format
+  const { width: compositionWidth, height: compositionHeight } = OUTPUT_DIMENSIONS[outputFormat];
   const padding = 100;
 
   const availableWidth = compositionWidth - padding * 2;

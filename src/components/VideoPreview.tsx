@@ -61,6 +61,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         key={videoPath}
         controls
         autoPlay
+        muted
         loop
         src={videoPath}
       />

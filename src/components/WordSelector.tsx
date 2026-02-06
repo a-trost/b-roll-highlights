@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import type { WordBox, MarkingMode, ZoomBox } from '../types';
+import type { WordBox, MarkingMode, ZoomBox, OutputFormat } from '../types';
+import { OUTPUT_DIMENSIONS } from '../types';
 
 interface WordSelectorProps {
   imageSrc: string;
@@ -12,6 +13,7 @@ interface WordSelectorProps {
   imageHeight: number;
   markingMode: MarkingMode;
   highlightColor: string;
+  outputFormat: OutputFormat;
 }
 
 export const WordSelector: React.FC<WordSelectorProps> = ({
@@ -25,6 +27,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   imageHeight,
   markingMode,
   highlightColor,
+  outputFormat = 'landscape',
 }) => {
   interface WordEntry {
     word: WordBox;
@@ -269,16 +272,17 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
   }, [toggleWord, words]);
 
   // Zoom box drawing handlers
-  // Video output is 16:9 (1920x1080), so zoom box must maintain that aspect ratio
+  // Video output aspect ratio depends on outputFormat, so zoom box must maintain that aspect ratio
   // in actual pixels, which means adjusting for the source image's aspect ratio
   const calculateZoomBox = useCallback((startX: number, startY: number, endX: number, endY: number): ZoomBox => {
     const imageAspect = imageWidth / imageHeight;
-    const videoAspect = 16 / 9;
+    const { width: outW, height: outH } = OUTPUT_DIMENSIONS[outputFormat];
+    const videoAspect = outW / outH;
 
     // Calculate width from drag
     let width = Math.abs(endX - startX);
 
-    // Height in normalized coords that gives 16:9 in actual pixels
+    // Height in normalized coords that gives correct aspect in actual pixels
     // normalizedHeight = normalizedWidth * imageAspect / videoAspect
     let height = width * imageAspect / videoAspect;
 
@@ -302,7 +306,7 @@ export const WordSelector: React.FC<WordSelectorProps> = ({
     height = width * imageAspect / videoAspect;
 
     return { x, y, width, height };
-  }, [imageWidth, imageHeight]);
+  }, [imageWidth, imageHeight, outputFormat]);
 
   const handleZoomPointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0 || markingMode !== 'zoom') return;

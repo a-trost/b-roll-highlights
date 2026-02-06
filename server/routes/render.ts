@@ -1,5 +1,5 @@
 import { renderHighlightVideo, type RenderProgress } from '../services/remotionRenderer';
-import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation, ZoomBox } from '../../src/types';
+import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation, ZoomBox, OutputFormat } from '../../src/types';
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -45,6 +45,7 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     vcrEffect,
     unblurSeconds,
     attributionText,
+    outputFormat,
   } = body;
 
   if (!filename || !backgroundColor) {
@@ -76,6 +77,7 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     exitAnimation: (exitAnimation as ExitAnimation) || 'none',
     vcrEffect: (vcrEffect as boolean) ?? false,
     attributionText: (attributionText as string) || '',
+    outputFormat: (outputFormat as OutputFormat) || 'landscape',
   };
 }
 

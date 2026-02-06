@@ -7,6 +7,15 @@ export interface WordBox {
   confidence: number;
 }
 
+// Output format types for vertical/square video export
+export type OutputFormat = 'landscape' | 'portrait' | 'square';
+
+export const OUTPUT_DIMENSIONS: Record<OutputFormat, { width: number; height: number }> = {
+  landscape: { width: 1920, height: 1080 },
+  portrait: { width: 1080, height: 1920 },
+  square: { width: 1080, height: 1080 },
+};
+
 export interface HighlightColor {
   name: string;
   value: string;
@@ -111,6 +120,7 @@ export interface HighlightProps {
   attributionText: string;
   zoomBox?: ZoomBox;
   zoomDurationSeconds?: number;
+  outputFormat?: OutputFormat;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)

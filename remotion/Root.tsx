@@ -8,6 +8,7 @@ import {
   DEFAULT_UNBLUR_SECONDS,
   DEFAULT_ZOOM_DURATION_SECONDS,
   FPS,
+  OUTPUT_DIMENSIONS,
 } from "../src/types";
 
 // Calculate the highlight animation duration based on character count
@@ -68,6 +69,7 @@ export const RemotionRoot: React.FC = () => {
           exitAnimation: "none" as const,
           vcrEffect: false,
           attributionText: "",
+          outputFormat: "landscape" as const,
         }}
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as HighlightProps;
@@ -76,6 +78,7 @@ export const RemotionRoot: React.FC = () => {
           const leadOutSeconds =
             typedProps.leadOutSeconds ?? DEFAULT_LEAD_OUT_SECONDS;
           const exitAnimation = typedProps.exitAnimation ?? "none";
+          const outputFormat = typedProps.outputFormat ?? "landscape";
 
           // Calculate lead-in frames (minimum 30 for animation)
           const leadInFrames = Math.max(30, Math.round(leadInSeconds * FPS));
@@ -90,8 +93,13 @@ export const RemotionRoot: React.FC = () => {
           // Total duration = lead-in + highlight animation + lead-out + exit buffer
           const totalFrames = leadInFrames + highlightFrames + leadOutFrames + exitBuffer;
 
+          // Get output dimensions based on format
+          const dims = OUTPUT_DIMENSIONS[outputFormat];
+
           return {
             durationInFrames: totalFrames,
+            width: dims.width,
+            height: dims.height,
             props,
           };
         }}
