@@ -3,6 +3,7 @@ import { handleUpload } from './routes/upload';
 import { handleOCR } from './routes/ocr';
 import { handleRender, handleRenderStream } from './routes/render';
 import { handleGetSettings, handlePostSettings, handleBrowse, loadSettings, getOutputDir } from './routes/settings';
+import { handleListImages } from './routes/images';
 
 const rootDir = path.resolve(import.meta.dir, '..');
 const PORT = 3001;
@@ -86,6 +87,10 @@ const server = Bun.serve({
 
     if (pathname === '/api/settings' && request.method === 'POST') {
       return handlePostSettings(request);
+    }
+
+    if (pathname === '/api/images' && request.method === 'GET') {
+      return handleListImages();
     }
 
     if (pathname === '/api/browse' && request.method === 'GET') {

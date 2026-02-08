@@ -1,5 +1,5 @@
 /* Linear-inspired design system */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap");
 
 :root {
   --bg-primary: #0a0a0b;
@@ -39,7 +39,7 @@
 
 body {
   font-family:
-    "Inter",
+    "Poppins",
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
@@ -89,7 +89,7 @@ body {
 
 .app h1 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 300;
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
@@ -1487,4 +1487,69 @@ body {
   text-align: center;
   color: var(--text-tertiary);
   font-size: 12px;
+}
+
+/* Image Browser */
+.image-browser-dialog {
+  width: 640px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.image-browser-dialog .modal-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.image-browser-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.image-browser-item {
+  aspect-ratio: 1;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.image-browser-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.image-browser-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-browser-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.browse-previous-link {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.1s ease;
+}
+
+.browse-previous-link:hover {
+  color: var(--text-secondary);
 }

@@ -14,7 +14,8 @@
       "Bash(ffmpeg:*)",
       "Bash(bun build:*)",
       "Bash(npm run build:*)",
-      "Bash(npx remotion:*)"
+      "Bash(npx remotion:*)",
+      "Bash(node -e:*)"
     ]
   }
 }

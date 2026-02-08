@@ -4,11 +4,13 @@ import { ImagePlus } from 'lucide-react';
 interface ImageUploaderProps {
   onUpload: (files: File[]) => void;
   isUploading: boolean;
+  onBrowsePrevious?: () => void;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   onUpload,
   isUploading,
+  onBrowsePrevious,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             <ImagePlus size={32} strokeWidth={1.5} />
           </div>
           <p>Drop an image here, paste from clipboard, or click to browse</p>
+          {onBrowsePrevious && (
+            <button
+              className="browse-previous-link"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBrowsePrevious();
+              }}
+            >
+              or browse previous uploads
+            </button>
+          )}
         </>
       )}
     </div>

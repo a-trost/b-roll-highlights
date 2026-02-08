@@ -1,5 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { WandSparkles, Highlighter, Circle, Underline, Focus, ZoomIn, Settings as SettingsIcon } from "lucide-react";
+import {
+  WandSparkles,
+  Highlighter,
+  Circle,
+  Underline,
+  Focus,
+  ZoomIn,
+  Settings as SettingsIcon,
+  Images,
+} from "lucide-react";
 import { useFavicon } from "./hooks/useFavicon";
 import { useHistory } from "./hooks/useHistory";
 import { ImageUploader } from "./components/ImageUploader";
@@ -19,6 +28,7 @@ import type {
 } from "./types";
 import { FormatSelector } from "./components/FormatSelector";
 import { SettingsModal } from "./components/SettingsModal";
+import { ImageBrowser } from "./components/ImageBrowser";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -297,7 +307,13 @@ const savePresets = (presets: Preset[]) => {
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
 };
 
-function HexInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function HexInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const [draft, setDraft] = useState(value);
   const [editing, setEditing] = useState(false);
 
@@ -335,14 +351,24 @@ function HexInput({ value, onChange }: { value: string; onChange: (v: string) =>
 }
 
 function App() {
-  const { state: image, setState: setImage, push: pushImage, undo, redo } = useHistory<ImageState | null>(loadState());
+  const {
+    state: image,
+    setState: setImage,
+    push: pushImage,
+    undo,
+    redo,
+  } = useHistory<ImageState | null>(loadState());
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
-  const [renderProgress, setRenderProgress] = useState<{ value: number; message: string } | null>(null);
+  const [renderProgress, setRenderProgress] = useState<{
+    value: number;
+    message: string;
+  } | null>(null);
   const [status, setStatus] = useState<Status>(null);
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
   const [showSettings, setShowSettings] = useState(false);
+  const [showImageBrowser, setShowImageBrowser] = useState(false);
   const imageRef = useRef(image);
 
   useEffect(() => {
@@ -358,7 +384,8 @@ function App() {
   }, [presets]);
 
   const hasVideo = Boolean(image?.videoPath);
-  const canRender = image && (image.selectedWords.length > 0 || image.zoomBox !== null);
+  const canRender =
+    image && (image.selectedWords.length > 0 || image.zoomBox !== null);
 
   useFavicon(isRendering, hasVideo);
 
@@ -431,6 +458,53 @@ function App() {
     }
   }, []);
 
+  const handleSelectImage = useCallback(async (filename: string) => {
+    setIsProcessingOCR(true);
+    setStatus({ type: "info", message: "Processing image with OCR..." });
+
+    try {
+      const ocrRes = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+
+      if (!ocrRes.ok) {
+        throw new Error("OCR processing failed");
+      }
+
+      const ocrData: OCRResult = await ocrRes.json();
+
+      setImage({
+        sourceName: filename,
+        filename,
+        imagePath: `/uploads/${filename}`,
+        words: ocrData.words,
+        selectedWords: [],
+        zoomBox: null,
+        backgroundColor: ocrData.backgroundColor,
+        imageWidth: ocrData.imageWidth,
+        imageHeight: ocrData.imageHeight,
+        settings: createDefaultSettings(),
+        videoPath: null,
+        renderTime: null,
+      });
+
+      setStatus({
+        type: "success",
+        message: `Found ${ocrData.words.length} words. ${isDarkBackground(ocrData.backgroundColor) ? "Dark" : "Light"} image detected.`,
+      });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to load image",
+      });
+    } finally {
+      setIsProcessingOCR(false);
+    }
+  }, []);
+
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -453,19 +527,29 @@ function App() {
   }, [handleUpload]);
 
   const getColors = useCallback(() => {
-    if (!image) return { availableColors: [], colorIndex: 0, selectedColor: "" };
+    if (!image)
+      return { availableColors: [], colorIndex: 0, selectedColor: "" };
     const availableColors =
-      image.settings.markingMode === "highlight" || image.settings.markingMode === "unblur"
+      image.settings.markingMode === "highlight" ||
+      image.settings.markingMode === "unblur"
         ? getHighlightColors(image.backgroundColor)
         : getCircleColors(image.backgroundColor);
-    const colorIndex = Math.min(image.settings.colorIndex, availableColors.length - 1);
-    const selectedColor = availableColors[colorIndex]?.value ?? availableColors[0].value;
+    const colorIndex = Math.min(
+      image.settings.colorIndex,
+      availableColors.length - 1,
+    );
+    const selectedColor =
+      availableColors[colorIndex]?.value ?? availableColors[0].value;
     return { availableColors, colorIndex, selectedColor };
   }, [image]);
 
   const handleRender = useCallback(async () => {
     const currentImage = imageRef.current;
-    if (!currentImage || (currentImage.selectedWords.length === 0 && !currentImage.zoomBox)) return;
+    if (
+      !currentImage ||
+      (currentImage.selectedWords.length === 0 && !currentImage.zoomBox)
+    )
+      return;
 
     const { selectedColor } = getColors();
 
@@ -525,7 +609,10 @@ function App() {
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
-              setRenderProgress({ value: data.progress, message: data.message });
+              setRenderProgress({
+                value: data.progress,
+                message: data.message,
+              });
               setStatus({ type: "info", message: "Rendering..." });
 
               if (data.videoPath) {
@@ -551,7 +638,7 @@ function App() {
                 videoPath,
                 renderTime: Date.now() - startTime,
               }
-            : null
+            : null,
         );
         setStatus({ type: "success", message: "Video rendered successfully!" });
       }
@@ -566,18 +653,21 @@ function App() {
     }
   }, [getColors]);
 
-  const updateSettings = useCallback((partial: Partial<Settings>) => {
-    pushImage((prev) =>
-      prev
-        ? {
-            ...prev,
-            settings: { ...prev.settings, ...partial },
-            videoPath: null,
-            renderTime: null,
-          }
-        : null
-    );
-  }, [pushImage]);
+  const updateSettings = useCallback(
+    (partial: Partial<Settings>) => {
+      pushImage((prev) =>
+        prev
+          ? {
+              ...prev,
+              settings: { ...prev.settings, ...partial },
+              videoPath: null,
+              renderTime: null,
+            }
+          : null,
+      );
+    },
+    [pushImage],
+  );
 
   const handleSavePreset = useCallback(
     (name: string) => {
@@ -591,7 +681,7 @@ function App() {
       };
       setPresets((prev) => [...prev, preset]);
     },
-    [image]
+    [image],
   );
 
   const handleLoadPreset = useCallback(
@@ -599,12 +689,12 @@ function App() {
       // Handle old presets that don't have outputFormat/frameRate
       const settings: Settings = {
         ...preset.settings,
-        outputFormat: preset.settings.outputFormat ?? 'landscape',
+        outputFormat: preset.settings.outputFormat ?? "landscape",
         frameRate: preset.settings.frameRate ?? 30,
       };
       updateSettings(settings);
     },
-    [updateSettings]
+    [updateSettings],
   );
 
   const handleOverwritePreset = useCallback(
@@ -612,15 +702,19 @@ function App() {
       if (!image) return;
       setPresets((prev) =>
         prev.map((p) =>
-          p.id === id ? { ...p, settings: { ...image.settings }, updatedAt: Date.now() } : p
-        )
+          p.id === id
+            ? { ...p, settings: { ...image.settings }, updatedAt: Date.now() }
+            : p,
+        ),
       );
     },
-    [image]
+    [image],
   );
 
   const handleRenamePreset = useCallback((id: string, newName: string) => {
-    setPresets((prev) => prev.map((p) => (p.id === id ? { ...p, name: newName } : p)));
+    setPresets((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name: newName } : p)),
+    );
   }, []);
 
   const handleDeletePreset = useCallback((id: string) => {
@@ -635,7 +729,11 @@ function App() {
       return { label: "OCR", detail: "Processing text", value: 45 };
     }
     if (isRendering && renderProgress) {
-      return { label: "Rendering", detail: renderProgress.message, value: renderProgress.value };
+      return {
+        label: "Rendering",
+        detail: renderProgress.message,
+        value: renderProgress.value,
+      };
     }
     if (isRendering) {
       return { label: "Rendering", detail: "Starting...", value: 0 };
@@ -684,19 +782,53 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-logo"><WandSparkles size={20} /></div>
-          <h1>B-Magic</h1>
+          <div className="app-logo">
+            <WandSparkles size={22} />
+          </div>
+          <h1>bMagic</h1>
         </div>
-        {status && <div className={`status status-header ${status.type}`}>{status.message}</div>}
-        <button className="btn-ghost btn-icon" onClick={() => setShowSettings(true)} title="Settings">
-          <SettingsIcon size={16} />
-        </button>
+        {status && (
+          <div className={`status status-header ${status.type}`}>
+            {status.message}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: "4px" }}>
+          {image && (
+            <button
+              className="btn-ghost btn-icon"
+              onClick={() => setShowImageBrowser(true)}
+              title="Browse previous uploads"
+            >
+              <Images size={16} />
+            </button>
+          )}
+          <button
+            className="btn-ghost btn-icon"
+            onClick={() => setShowSettings(true)}
+            title="Settings"
+          >
+            <SettingsIcon size={16} />
+          </button>
+        </div>
       </header>
 
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
+
+      <ImageBrowser
+        open={showImageBrowser}
+        onClose={() => setShowImageBrowser(false)}
+        onSelect={handleSelectImage}
+      />
 
       {!image ? (
-        <ImageUploader onUpload={handleUpload} isUploading={isUploading} />
+        <ImageUploader
+          onUpload={handleUpload}
+          isUploading={isUploading}
+          onBrowsePrevious={() => setShowImageBrowser(true)}
+        />
       ) : (
         <div className="editor-layout">
           <div className="editor-main">
@@ -704,28 +836,36 @@ function App() {
               <div className="mode-toggle">
                 <button
                   className={`mode-btn ${image.settings.markingMode === "highlight" ? "active" : ""}`}
-                  onClick={() => updateSettings({ markingMode: "highlight", colorIndex: 0 })}
+                  onClick={() =>
+                    updateSettings({ markingMode: "highlight", colorIndex: 0 })
+                  }
                 >
                   <Highlighter size={16} />
                   Highlight
                 </button>
                 <button
                   className={`mode-btn ${image.settings.markingMode === "circle" ? "active" : ""}`}
-                  onClick={() => updateSettings({ markingMode: "circle", colorIndex: 0 })}
+                  onClick={() =>
+                    updateSettings({ markingMode: "circle", colorIndex: 0 })
+                  }
                 >
                   <Circle size={16} />
                   Circle
                 </button>
                 <button
                   className={`mode-btn ${image.settings.markingMode === "underline" ? "active" : ""}`}
-                  onClick={() => updateSettings({ markingMode: "underline", colorIndex: 0 })}
+                  onClick={() =>
+                    updateSettings({ markingMode: "underline", colorIndex: 0 })
+                  }
                 >
                   <Underline size={16} />
                   Underline
                 </button>
                 <button
                   className={`mode-btn ${image.settings.markingMode === "unblur" ? "active" : ""}`}
-                  onClick={() => updateSettings({ markingMode: "unblur", colorIndex: 0 })}
+                  onClick={() =>
+                    updateSettings({ markingMode: "unblur", colorIndex: 0 })
+                  }
                 >
                   <Focus size={16} />
                   Unblur
@@ -738,37 +878,66 @@ function App() {
                   Zoom
                 </button>
               </div>
-              {image.settings.markingMode !== "zoom" && image.settings.markingMode !== "unblur" && (
-                <div className="mode-color-picker">
-                  <span className="color-preview" style={{ backgroundColor: selectedColor }} />
-                  <select
-                    id="color-select"
-                    value={colorIndex}
-                    onChange={(e) => updateSettings({ colorIndex: parseInt(e.target.value, 10) })}
-                  >
-                    {availableColors.map((color, idx) => (
-                      <option key={color.name} value={idx}>
-                        {color.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {image.settings.markingMode !== "zoom" &&
+                image.settings.markingMode !== "unblur" && (
+                  <div className="mode-color-picker">
+                    <span
+                      className="color-preview"
+                      style={{ backgroundColor: selectedColor }}
+                    />
+                    <select
+                      id="color-select"
+                      value={colorIndex}
+                      onChange={(e) =>
+                        updateSettings({
+                          colorIndex: parseInt(e.target.value, 10),
+                        })
+                      }
+                    >
+                      {availableColors.map((color, idx) => (
+                        <option key={color.name} value={idx}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
             </div>
 
             {isUploading || isProcessingOCR ? (
               <div className="loading">
                 <div className="spinner" />
-                <span>{isUploading ? "Uploading image..." : "Processing image with OCR..."}</span>
+                <span>
+                  {isUploading
+                    ? "Uploading image..."
+                    : "Processing image with OCR..."}
+                </span>
               </div>
             ) : (
               <WordSelector
                 imageSrc={image.imagePath}
                 words={image.words}
                 selectedWords={image.selectedWords}
-                onSelectionChange={(words) => pushImage((prev) => (prev ? { ...prev, selectedWords: words, videoPath: null, renderTime: null } : null))}
+                onSelectionChange={(words) =>
+                  pushImage((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          selectedWords: words,
+                          videoPath: null,
+                          renderTime: null,
+                        }
+                      : null,
+                  )
+                }
                 zoomBox={image.zoomBox}
-                onZoomBoxChange={(zoomBox) => pushImage((prev) => (prev ? { ...prev, zoomBox, videoPath: null, renderTime: null } : null))}
+                onZoomBoxChange={(zoomBox) =>
+                  pushImage((prev) =>
+                    prev
+                      ? { ...prev, zoomBox, videoPath: null, renderTime: null }
+                      : null,
+                  )
+                }
                 imageWidth={image.imageWidth}
                 imageHeight={image.imageHeight}
                 markingMode={image.settings.markingMode}
@@ -788,7 +957,9 @@ function App() {
                   <div className="slider-control">
                     <div className="slider-header">
                       <span className="slider-label">Lead In</span>
-                      <span className="slider-value">{image.settings.leadInSeconds}s</span>
+                      <span className="slider-value">
+                        {image.settings.leadInSeconds}s
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -796,14 +967,20 @@ function App() {
                       max={MAX_LEAD_SECONDS}
                       step={0.5}
                       value={image.settings.leadInSeconds}
-                      onChange={(e) => updateSettings({ leadInSeconds: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        updateSettings({
+                          leadInSeconds: parseFloat(e.target.value),
+                        })
+                      }
                     />
                   </div>
                   {image.settings.markingMode !== "zoom" && (
                     <div className="slider-control">
                       <div className="slider-header">
                         <span className="slider-label">Speed</span>
-                        <span className="slider-value">{image.settings.charsPerSecond} chr/s</span>
+                        <span className="slider-value">
+                          {image.settings.charsPerSecond} chr/s
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -811,7 +988,11 @@ function App() {
                         max={MAX_CHARS_PER_SECOND}
                         step={1}
                         value={image.settings.charsPerSecond}
-                        onChange={(e) => updateSettings({ charsPerSecond: parseInt(e.target.value, 10) })}
+                        onChange={(e) =>
+                          updateSettings({
+                            charsPerSecond: parseInt(e.target.value, 10),
+                          })
+                        }
                       />
                     </div>
                   )}
@@ -819,7 +1000,9 @@ function App() {
                     <div className="slider-control">
                       <div className="slider-header">
                         <span className="slider-label">Zoom Duration</span>
-                        <span className="slider-value">{image.settings.zoomDurationSeconds}s</span>
+                        <span className="slider-value">
+                          {image.settings.zoomDurationSeconds}s
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -827,14 +1010,20 @@ function App() {
                         max={MAX_ZOOM_DURATION_SECONDS}
                         step={0.1}
                         value={image.settings.zoomDurationSeconds}
-                        onChange={(e) => updateSettings({ zoomDurationSeconds: parseFloat(e.target.value) })}
+                        onChange={(e) =>
+                          updateSettings({
+                            zoomDurationSeconds: parseFloat(e.target.value),
+                          })
+                        }
                       />
                     </div>
                   )}
                   <div className="slider-control">
                     <div className="slider-header">
                       <span className="slider-label">Lead Out</span>
-                      <span className="slider-value">{image.settings.leadOutSeconds}s</span>
+                      <span className="slider-value">
+                        {image.settings.leadOutSeconds}s
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -842,7 +1031,11 @@ function App() {
                       max={MAX_LEAD_SECONDS}
                       step={0.5}
                       value={image.settings.leadOutSeconds}
-                      onChange={(e) => updateSettings({ leadOutSeconds: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        updateSettings({
+                          leadOutSeconds: parseFloat(e.target.value),
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -859,7 +1052,11 @@ function App() {
                       id="camera-select"
                       className="select-input"
                       value={image.settings.cameraMovement}
-                      onChange={(e) => updateSettings({ cameraMovement: e.target.value as CameraMovement })}
+                      onChange={(e) =>
+                        updateSettings({
+                          cameraMovement: e.target.value as CameraMovement,
+                        })
+                      }
                     >
                       <option value="left-right">Left → Right</option>
                       <option value="right-left">Right → Left</option>
@@ -878,7 +1075,11 @@ function App() {
                       id="enter-select"
                       className="select-input"
                       value={image.settings.enterAnimation}
-                      onChange={(e) => updateSettings({ enterAnimation: e.target.value as EnterAnimation })}
+                      onChange={(e) =>
+                        updateSettings({
+                          enterAnimation: e.target.value as EnterAnimation,
+                        })
+                      }
                     >
                       <option value="blur">Blur</option>
                       <option value="from-bottom">From Bottom</option>
@@ -896,7 +1097,11 @@ function App() {
                       id="exit-select"
                       className="select-input"
                       value={image.settings.exitAnimation}
-                      onChange={(e) => updateSettings({ exitAnimation: e.target.value as ExitAnimation })}
+                      onChange={(e) =>
+                        updateSettings({
+                          exitAnimation: e.target.value as ExitAnimation,
+                        })
+                      }
                     >
                       <option value="blur">Blur</option>
                       <option value="to-bottom">To Bottom</option>
@@ -907,14 +1112,25 @@ function App() {
                     </select>
                   </div>
                   <div className="setting-group">
-                    <label className="setting-label" htmlFor="background-select">
+                    <label
+                      className="setting-label"
+                      htmlFor="background-select"
+                    >
                       Background
                     </label>
                     <select
                       id="background-select"
                       className="select-input"
-                      value={image.settings.blurredBackground ? "blurred" : "dominant"}
-                      onChange={(e) => updateSettings({ blurredBackground: e.target.value === "blurred" })}
+                      value={
+                        image.settings.blurredBackground
+                          ? "blurred"
+                          : "dominant"
+                      }
+                      onChange={(e) =>
+                        updateSettings({
+                          blurredBackground: e.target.value === "blurred",
+                        })
+                      }
                     >
                       <option value="dominant">Dominant Color</option>
                       <option value="blurred">Blurred Image</option>
@@ -928,7 +1144,9 @@ function App() {
                       id="overlay-select"
                       className="select-input"
                       value={image.settings.vcrEffect ? "vcr" : "none"}
-                      onChange={(e) => updateSettings({ vcrEffect: e.target.value === "vcr" })}
+                      onChange={(e) =>
+                        updateSettings({ vcrEffect: e.target.value === "vcr" })
+                      }
                     >
                       <option value="none">None</option>
                       <option value="vcr">VCR Effect</option>
@@ -940,8 +1158,14 @@ function App() {
               <div className="settings-section">
                 <h3 className="settings-section-title">Attribution</h3>
                 <div className="attribution-row">
-                  <div className="setting-group" style={{ flex: 1, minWidth: 0 }}>
-                    <label className="setting-label" htmlFor="attribution-input">
+                  <div
+                    className="setting-group"
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    <label
+                      className="setting-label"
+                      htmlFor="attribution-input"
+                    >
                       Lower Third Text
                     </label>
                     <input
@@ -950,11 +1174,16 @@ function App() {
                       className="text-input"
                       placeholder="e.g., via @username or Source: example.com"
                       value={image.settings.attributionText}
-                      onChange={(e) => updateSettings({ attributionText: e.target.value })}
+                      onChange={(e) =>
+                        updateSettings({ attributionText: e.target.value })
+                      }
                     />
                   </div>
                   <div className="setting-group">
-                    <label className="setting-label" htmlFor="attribution-bg-color">
+                    <label
+                      className="setting-label"
+                      htmlFor="attribution-bg-color"
+                    >
                       Background
                     </label>
                     <div className="color-input-wrapper">
@@ -962,16 +1191,23 @@ function App() {
                         type="color"
                         id="attribution-bg-color"
                         value={image.settings.attributionBgColor}
-                        onChange={(e) => updateSettings({ attributionBgColor: e.target.value })}
+                        onChange={(e) =>
+                          updateSettings({ attributionBgColor: e.target.value })
+                        }
                       />
                       <HexInput
                         value={image.settings.attributionBgColor}
-                        onChange={(v) => updateSettings({ attributionBgColor: v })}
+                        onChange={(v) =>
+                          updateSettings({ attributionBgColor: v })
+                        }
                       />
                     </div>
                   </div>
                   <div className="setting-group">
-                    <label className="setting-label" htmlFor="attribution-text-color">
+                    <label
+                      className="setting-label"
+                      htmlFor="attribution-text-color"
+                    >
                       Text
                     </label>
                     <div className="color-input-wrapper">
@@ -979,11 +1215,17 @@ function App() {
                         type="color"
                         id="attribution-text-color"
                         value={image.settings.attributionTextColor}
-                        onChange={(e) => updateSettings({ attributionTextColor: e.target.value })}
+                        onChange={(e) =>
+                          updateSettings({
+                            attributionTextColor: e.target.value,
+                          })
+                        }
                       />
                       <HexInput
                         value={image.settings.attributionTextColor}
-                        onChange={(v) => updateSettings({ attributionTextColor: v })}
+                        onChange={(v) =>
+                          updateSettings({ attributionTextColor: v })
+                        }
                       />
                     </div>
                   </div>
@@ -1013,7 +1255,12 @@ function App() {
           </div>
 
           <div className="editor-sidebar">
-            <VideoPreview videoPath={image.videoPath} isRendering={isRendering} renderTime={image.renderTime} renderProgress={progressState} />
+            <VideoPreview
+              videoPath={image.videoPath}
+              isRendering={isRendering}
+              renderTime={image.renderTime}
+              renderProgress={progressState}
+            />
             <div className="settings-section">
               <h3 className="settings-section-title">Output Format</h3>
               <FormatSelector
