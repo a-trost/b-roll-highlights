@@ -171,7 +171,7 @@ export interface RenderResponse {
 export const DEFAULT_LEAD_IN_SECONDS = 1;
 export const DEFAULT_LEAD_OUT_SECONDS = 2;
 export const MIN_LEAD_SECONDS = 0;
-export const MAX_LEAD_SECONDS = 8;
+export const MAX_LEAD_SECONDS = 12;
 export const FPS = 30;
 
 // Unblur animation duration (seconds)
