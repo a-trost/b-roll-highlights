@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { WandSparkles, Highlighter, Circle, Underline, Focus, ZoomIn, Settings as SettingsIcon } from "lucide-react";
 import { useFavicon } from "./hooks/useFavicon";
+import { useHistory } from "./hooks/useHistory";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
 import { VideoPreview } from "./components/VideoPreview";
@@ -52,6 +53,8 @@ export type Settings = {
   exitAnimation: ExitAnimation;
   vcrEffect: boolean;
   attributionText: string;
+  attributionBgColor: string;
+  attributionTextColor: string;
   outputFormat: OutputFormat;
   frameRate: 24 | 30 | 60;
 };
@@ -90,6 +93,8 @@ const createDefaultSettings = (): Settings => ({
   exitAnimation: "none",
   vcrEffect: false,
   attributionText: "",
+  attributionBgColor: "#E8C6FE",
+  attributionTextColor: "#333333",
   outputFormat: "landscape",
   frameRate: 30,
 });
@@ -146,6 +151,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "none",
       vcrEffect: false,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -168,6 +175,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "blur",
       vcrEffect: false,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -190,6 +199,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "none",
       vcrEffect: false,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -212,6 +223,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "to-top",
       vcrEffect: true,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -234,6 +247,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "to-right",
       vcrEffect: false,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -256,6 +271,8 @@ const DEFAULT_PRESETS: Preset[] = [
       exitAnimation: "blur",
       vcrEffect: false,
       attributionText: "",
+      attributionBgColor: "#E8C6FE",
+      attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
     },
@@ -280,8 +297,45 @@ const savePresets = (presets: Preset[]) => {
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
 };
 
+function HexInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  const commit = (raw: string) => {
+    let v = raw.trim();
+    if (!v.startsWith("#")) v = "#" + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      onChange(v);
+    } else {
+      setDraft(value);
+    }
+    setEditing(false);
+  };
+
+  return (
+    <input
+      type="text"
+      className="color-hex-input"
+      value={draft}
+      onFocus={(e) => {
+        setEditing(true);
+        e.target.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={(e) => commit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+      }}
+    />
+  );
+}
+
 function App() {
-  const [image, setImage] = useState<ImageState | null>(() => loadState());
+  const { state: image, setState: setImage, push: pushImage, undo, redo } = useHistory<ImageState | null>(loadState());
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
@@ -443,6 +497,8 @@ function App() {
           exitAnimation: currentImage.settings.exitAnimation,
           vcrEffect: currentImage.settings.vcrEffect,
           attributionText: currentImage.settings.attributionText,
+          attributionBgColor: currentImage.settings.attributionBgColor,
+          attributionTextColor: currentImage.settings.attributionTextColor,
           outputFormat: currentImage.settings.outputFormat,
           frameRate: currentImage.settings.frameRate,
         }),
@@ -511,15 +567,17 @@ function App() {
   }, [getColors]);
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
-    setImage((prev) =>
+    pushImage((prev) =>
       prev
         ? {
             ...prev,
             settings: { ...prev.settings, ...partial },
+            videoPath: null,
+            renderTime: null,
           }
         : null
     );
-  }, []);
+  }, [pushImage]);
 
   const handleSavePreset = useCallback(
     (name: string) => {
@@ -587,6 +645,16 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         if (canRender && !isRendering) {
           e.preventDefault();
@@ -607,7 +675,7 @@ function App() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [canRender, isRendering, handleRender, image?.videoPath]);
+  }, [canRender, isRendering, handleRender, image?.videoPath, undo, redo]);
 
   const { availableColors, colorIndex, selectedColor } = getColors();
   const progressState = getProgressState();
@@ -698,9 +766,9 @@ function App() {
                 imageSrc={image.imagePath}
                 words={image.words}
                 selectedWords={image.selectedWords}
-                onSelectionChange={(words) => setImage((prev) => (prev ? { ...prev, selectedWords: words } : null))}
+                onSelectionChange={(words) => pushImage((prev) => (prev ? { ...prev, selectedWords: words, videoPath: null, renderTime: null } : null))}
                 zoomBox={image.zoomBox}
-                onZoomBoxChange={(zoomBox) => setImage((prev) => (prev ? { ...prev, zoomBox } : null))}
+                onZoomBoxChange={(zoomBox) => pushImage((prev) => (prev ? { ...prev, zoomBox, videoPath: null, renderTime: null } : null))}
                 imageWidth={image.imageWidth}
                 imageHeight={image.imageHeight}
                 markingMode={image.settings.markingMode}
@@ -871,8 +939,8 @@ function App() {
 
               <div className="settings-section">
                 <h3 className="settings-section-title">Attribution</h3>
-                <div className="settings-row">
-                  <div className="setting-group setting-group-full">
+                <div className="attribution-row">
+                  <div className="setting-group" style={{ flex: 1, minWidth: 0 }}>
                     <label className="setting-label" htmlFor="attribution-input">
                       Lower Third Text
                     </label>
@@ -884,6 +952,40 @@ function App() {
                       value={image.settings.attributionText}
                       onChange={(e) => updateSettings({ attributionText: e.target.value })}
                     />
+                  </div>
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="attribution-bg-color">
+                      Background
+                    </label>
+                    <div className="color-input-wrapper">
+                      <input
+                        type="color"
+                        id="attribution-bg-color"
+                        value={image.settings.attributionBgColor}
+                        onChange={(e) => updateSettings({ attributionBgColor: e.target.value })}
+                      />
+                      <HexInput
+                        value={image.settings.attributionBgColor}
+                        onChange={(v) => updateSettings({ attributionBgColor: v })}
+                      />
+                    </div>
+                  </div>
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="attribution-text-color">
+                      Text
+                    </label>
+                    <div className="color-input-wrapper">
+                      <input
+                        type="color"
+                        id="attribution-text-color"
+                        value={image.settings.attributionTextColor}
+                        onChange={(e) => updateSettings({ attributionTextColor: e.target.value })}
+                      />
+                      <HexInput
+                        value={image.settings.attributionTextColor}
+                        onChange={(v) => updateSettings({ attributionTextColor: v })}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

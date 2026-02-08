@@ -118,6 +118,8 @@ export interface HighlightProps {
   exitAnimation: ExitAnimation;
   vcrEffect: boolean;
   attributionText: string;
+  attributionBgColor: string;
+  attributionTextColor: string;
   zoomBox?: ZoomBox;
   zoomDurationSeconds?: number;
   outputFormat?: OutputFormat;

@@ -2,9 +2,11 @@ import { useCurrentFrame, useVideoConfig, interpolate, Easing } from "remotion";
 
 interface LowerThirdProps {
   text: string;
+  bgColor?: string;
+  textColor?: string;
 }
 
-export const LowerThird: React.FC<LowerThirdProps> = ({ text }) => {
+export const LowerThird: React.FC<LowerThirdProps> = ({ text, bgColor = "#E8C6FE", textColor = "#333333" }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
@@ -61,8 +63,8 @@ export const LowerThird: React.FC<LowerThirdProps> = ({ text }) => {
     >
       <div
         style={{
-          backgroundColor: "#E8C6FE",
-          color: "#333333",
+          backgroundColor: bgColor,
+          color: textColor,
           padding: "10px 18px",
           borderRadius: 6,
           fontSize: 24,

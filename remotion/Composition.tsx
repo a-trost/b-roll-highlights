@@ -50,6 +50,8 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     exitAnimation = "none" as ExitAnimation,
     vcrEffect = false,
     attributionText = "",
+    attributionBgColor = "#E8C6FE",
+    attributionTextColor = "#333333",
     outputFormat = "landscape" as OutputFormat,
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
@@ -585,7 +587,7 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
       {vcrEffect && <VCREffect intensity={0.6} isDarkMode={isDarkBackground(backgroundColor)} />}
 
       {/* Lower third attribution */}
-      {attributionText && <LowerThird text={attributionText} />}
+      {attributionText && <LowerThird text={attributionText} bgColor={attributionBgColor} textColor={attributionTextColor} />}
 
     </AbsoluteFill>
   );

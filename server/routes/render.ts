@@ -46,6 +46,8 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     vcrEffect,
     unblurSeconds,
     attributionText,
+    attributionBgColor,
+    attributionTextColor,
     outputFormat,
     frameRate,
   } = body;
@@ -79,6 +81,8 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     exitAnimation: (exitAnimation as ExitAnimation) || 'none',
     vcrEffect: (vcrEffect as boolean) ?? false,
     attributionText: (attributionText as string) || '',
+    attributionBgColor: (attributionBgColor as string) || '#E8C6FE',
+    attributionTextColor: (attributionTextColor as string) || '#333333',
     outputFormat: (outputFormat as OutputFormat) || 'landscape',
     frameRate: (frameRate as 24 | 30 | 60) || 30,
   };
