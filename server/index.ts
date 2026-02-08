@@ -2,6 +2,7 @@ import path from 'path';
 import { handleUpload } from './routes/upload';
 import { handleOCR } from './routes/ocr';
 import { handleRender, handleRenderStream } from './routes/render';
+import { handleGetSettings, handlePostSettings, handleBrowse, loadSettings, getOutputDir } from './routes/settings';
 
 const rootDir = path.resolve(import.meta.dir, '..');
 const PORT = 3001;
@@ -53,10 +54,12 @@ const server = Bun.serve({
       return serveStaticFile(filePath);
     }
 
-    // Static file serving for output videos
+    // Static file serving for output videos (reads configured output dir)
     if (pathname.startsWith('/output/')) {
       const filename = pathname.slice('/output/'.length);
-      const filePath = path.join(rootDir, 'output', filename);
+      const settings = await loadSettings();
+      const outputDir = getOutputDir(settings);
+      const filePath = path.join(outputDir, filename);
       return serveStaticFile(filePath);
     }
 
@@ -75,6 +78,18 @@ const server = Bun.serve({
 
     if (pathname === '/api/render-stream' && request.method === 'POST') {
       return handleRenderStream(request);
+    }
+
+    if (pathname === '/api/settings' && request.method === 'GET') {
+      return handleGetSettings();
+    }
+
+    if (pathname === '/api/settings' && request.method === 'POST') {
+      return handlePostSettings(request);
+    }
+
+    if (pathname === '/api/browse' && request.method === 'GET') {
+      return handleBrowse(request);
     }
 
     // 404 for unmatched routes

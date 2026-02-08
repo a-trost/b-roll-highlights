@@ -1,4 +1,5 @@
 import { renderHighlightVideo, type RenderProgress } from '../services/remotionRenderer';
+import { loadSettings, getOutputDir } from './settings';
 import type { HighlightProps, WordBox, MarkingMode, CameraMovement, EnterAnimation, ExitAnimation, ZoomBox, OutputFormat } from '../../src/types';
 import {
   DEFAULT_LEAD_IN_SECONDS,
@@ -92,7 +93,9 @@ export async function handleRender(request: Request): Promise<Response> {
       return jsonResponse({ error: result.error }, 400);
     }
 
-    const videoPath = await renderHighlightVideo(result);
+    const settings = await loadSettings();
+    const outputDir = getOutputDir(settings);
+    const videoPath = await renderHighlightVideo(result, undefined, outputDir);
     return jsonResponse({ videoPath });
   } catch (error) {
     console.error('Render error:', error);
@@ -109,6 +112,9 @@ export async function handleRenderStream(request: Request): Promise<Response> {
       return jsonResponse({ error: result.error }, 400);
     }
 
+    const settings = await loadSettings();
+    const outputDir = getOutputDir(settings);
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -119,7 +125,7 @@ export async function handleRenderStream(request: Request): Promise<Response> {
         try {
           const videoPath = await renderHighlightVideo(result, (progress) => {
             sendEvent(progress);
-          });
+          }, outputDir);
 
           sendEvent({ stage: 'done', progress: 100, message: 'Complete!', videoPath });
           controller.close();

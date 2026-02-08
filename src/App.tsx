@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { WandSparkles, Highlighter, Circle, Underline, Focus, ZoomIn } from "lucide-react";
+import { WandSparkles, Highlighter, Circle, Underline, Focus, ZoomIn, Settings as SettingsIcon } from "lucide-react";
 import { useFavicon } from "./hooks/useFavicon";
 import { ImageUploader } from "./components/ImageUploader";
 import { WordSelector } from "./components/WordSelector";
@@ -17,6 +17,7 @@ import type {
   OutputFormat,
 } from "./types";
 import { FormatSelector } from "./components/FormatSelector";
+import { SettingsModal } from "./components/SettingsModal";
 import {
   DEFAULT_LEAD_IN_SECONDS,
   DEFAULT_LEAD_OUT_SECONDS,
@@ -287,6 +288,7 @@ function App() {
   const [renderProgress, setRenderProgress] = useState<{ value: number; message: string } | null>(null);
   const [status, setStatus] = useState<Status>(null);
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
+  const [showSettings, setShowSettings] = useState(false);
   const imageRef = useRef(image);
 
   useEffect(() => {
@@ -618,7 +620,12 @@ function App() {
           <h1>B-Magic</h1>
         </div>
         {status && <div className={`status status-header ${status.type}`}>{status.message}</div>}
+        <button className="btn-ghost btn-icon" onClick={() => setShowSettings(true)} title="Settings">
+          <SettingsIcon size={16} />
+        </button>
       </header>
+
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
       {!image ? (
         <ImageUploader onUpload={handleUpload} isUploading={isUploading} />

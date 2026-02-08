@@ -11,6 +11,9 @@ output/
 # Uploaded images
 public/uploads/
 
+# Server settings
+server/settings.json
+
 # Environment files
 .env
 .env.local

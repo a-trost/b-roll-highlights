@@ -1,6 +1,7 @@
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
+import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import type { HighlightProps } from '../../src/types';
 
@@ -58,14 +59,17 @@ async function ensureBundle(onProgress?: (p: RenderProgress) => void): Promise<s
 
 export async function renderHighlightVideo(
   props: HighlightProps,
-  onProgress?: (p: RenderProgress) => void
+  onProgress?: (p: RenderProgress) => void,
+  outputDir?: string
 ): Promise<string> {
   const bundlePath = await ensureBundle(onProgress);
 
   onProgress?.({ stage: 'composing', progress: 15, message: 'Preparing composition...' });
 
   const outputFileName = generateFilename(props);
-  const outputPath = path.join(rootDir, 'output', outputFileName);
+  const resolvedOutputDir = outputDir || path.join(rootDir, 'output');
+  await fs.mkdir(resolvedOutputDir, { recursive: true });
+  const outputPath = path.join(resolvedOutputDir, outputFileName);
 
   // Cast props to satisfy Remotion's type expectations
   const inputProps = props as unknown as Record<string, unknown>;
