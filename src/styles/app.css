@@ -821,6 +821,22 @@ body {
   border-color: var(--border-hover);
 }
 
+.video-preview .download-link--pending {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.video-preview .download-link--pending:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-subtle);
+}
+
+.video-preview .prores-progress {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+}
+
 .video-preview .render-time {
   font-size: 12px;
   color: var(--text-tertiary);
@@ -1552,4 +1568,71 @@ body {
 
 .browse-previous-link:hover {
   color: var(--text-secondary);
+}
+
+/* Lower Third Info Panel */
+.lower-third-info {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.lower-third-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.lower-third-info-header svg {
+  color: var(--text-tertiary);
+}
+
+.lower-third-info-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lower-third-info-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.lower-third-info-hint strong {
+  color: var(--text-secondary);
+}
+
+/* .mov Preview Notice */
+.mov-preview-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  color: var(--text-tertiary);
+  text-align: center;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-default);
+}
+
+.mov-preview-notice p {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 240px;
+  margin: 4px 0;
+}
+
+.mov-preview-notice svg {
+  margin-bottom: 8px;
 }

@@ -24,6 +24,7 @@ import { SvgCircler } from "./components/SvgCircler";
 import { SvgUnderliner } from "./components/SvgUnderliner";
 import { VCREffect } from "./components/VCREffect";
 import { LowerThird } from "./components/LowerThird";
+import { TechLowerThird } from "./components/TechLowerThird";
 import { UnblurReveal } from "./components/UnblurReveal";
 
 export const HighlightComposition: React.FC<Record<string, unknown>> = (
@@ -53,10 +54,21 @@ export const HighlightComposition: React.FC<Record<string, unknown>> = (
     attributionBgColor = "#E8C6FE",
     attributionTextColor = "#333333",
     outputFormat = "landscape" as OutputFormat,
+    lowerThirdName = "",
   } = typedProps;
   void _leadOutSeconds; // Used in duration calculation in Root.tsx
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
+
+  // Lower-third mode: transparent bg (or white for browser preview)
+  if (markingMode === "lower-third" && lowerThirdName) {
+    const previewBg = (typedProps as unknown as Record<string, unknown>).lowerThirdPreviewBg === true;
+    return (
+      <AbsoluteFill style={{ backgroundColor: previewBg ? "#ffffff" : "transparent" }}>
+        <TechLowerThird text={lowerThirdName} />
+      </AbsoluteFill>
+    );
+  }
 
   // Calculate timing based on lead-in/lead-out
   const leadInFrames = Math.round(leadInSeconds * FPS);

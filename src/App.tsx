@@ -6,6 +6,7 @@ import {
   Underline,
   Focus,
   ZoomIn,
+  PanelBottom,
   Settings as SettingsIcon,
   Images,
 } from "lucide-react";
@@ -40,6 +41,9 @@ import {
   DEFAULT_ZOOM_DURATION_SECONDS,
   MIN_ZOOM_DURATION_SECONDS,
   MAX_ZOOM_DURATION_SECONDS,
+  DEFAULT_LOWER_THIRD_DURATION,
+  MIN_LOWER_THIRD_DURATION,
+  MAX_LOWER_THIRD_DURATION,
   getHighlightColors,
   getCircleColors,
   isDarkBackground,
@@ -67,6 +71,9 @@ export type Settings = {
   attributionTextColor: string;
   outputFormat: OutputFormat;
   frameRate: 24 | 30 | 60;
+  lowerThirdName: string;
+  lowerThirdSubtitle: string;
+  lowerThirdDuration: number;
 };
 
 type ImageState = {
@@ -81,6 +88,7 @@ type ImageState = {
   imageHeight: number;
   settings: Settings;
   videoPath: string | null;
+  downloadPath: string | null;
   renderTime: number | null;
 };
 
@@ -107,6 +115,9 @@ const createDefaultSettings = (): Settings => ({
   attributionTextColor: "#333333",
   outputFormat: "landscape",
   frameRate: 30,
+  lowerThirdName: "",
+  lowerThirdSubtitle: "",
+  lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
 });
 
 const loadState = (): ImageState | null => {
@@ -165,6 +176,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -189,6 +203,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -213,6 +230,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -237,6 +257,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -261,6 +284,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -285,6 +311,9 @@ const DEFAULT_PRESETS: Preset[] = [
       attributionTextColor: "#333333",
       outputFormat: "landscape",
       frameRate: 30,
+      lowerThirdName: "",
+      lowerThirdSubtitle: "",
+      lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
     },
     createdAt: 0,
     updatedAt: 0,
@@ -385,7 +414,11 @@ function App() {
 
   const hasVideo = Boolean(image?.videoPath);
   const canRender =
-    image && (image.selectedWords.length > 0 || image.zoomBox !== null);
+    image &&
+    (image.selectedWords.length > 0 ||
+      image.zoomBox !== null ||
+      (image.settings.markingMode === "lower-third" &&
+        image.settings.lowerThirdName.trim().length > 0));
 
   useFavicon(isRendering, hasVideo);
 
@@ -440,6 +473,7 @@ function App() {
         imageHeight: ocrData.imageHeight,
         settings: createDefaultSettings(),
         videoPath: null,
+        downloadPath: null,
         renderTime: null,
       });
 
@@ -487,6 +521,7 @@ function App() {
         imageHeight: ocrData.imageHeight,
         settings: createDefaultSettings(),
         videoPath: null,
+        downloadPath: null,
         renderTime: null,
       });
 
@@ -545,9 +580,12 @@ function App() {
 
   const handleRender = useCallback(async () => {
     const currentImage = imageRef.current;
+    if (!currentImage) return;
+    const isLowerThird = currentImage.settings.markingMode === "lower-third";
     if (
-      !currentImage ||
-      (currentImage.selectedWords.length === 0 && !currentImage.zoomBox)
+      !isLowerThird &&
+      currentImage.selectedWords.length === 0 &&
+      !currentImage.zoomBox
     )
       return;
 
@@ -585,6 +623,9 @@ function App() {
           attributionTextColor: currentImage.settings.attributionTextColor,
           outputFormat: currentImage.settings.outputFormat,
           frameRate: currentImage.settings.frameRate,
+          lowerThirdName: currentImage.settings.lowerThirdName,
+          lowerThirdSubtitle: currentImage.settings.lowerThirdSubtitle,
+          lowerThirdDuration: currentImage.settings.lowerThirdDuration,
         }),
       });
 
@@ -597,6 +638,7 @@ function App() {
 
       const decoder = new TextDecoder();
       let videoPath: string | null = null;
+      let downloadPath: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -618,6 +660,18 @@ function App() {
               if (data.videoPath) {
                 videoPath = data.videoPath;
               }
+              if (data.downloadPath) {
+                downloadPath = data.downloadPath;
+              }
+
+              // Show preview immediately when H.264 preview is ready
+              if (data.stage === "preview-ready" && videoPath) {
+                setImage((prev) =>
+                  prev
+                    ? { ...prev, videoPath, downloadPath: null, renderTime: null }
+                    : null,
+                );
+              }
 
               if (data.stage === "error") {
                 throw new Error(data.message);
@@ -636,6 +690,7 @@ function App() {
             ? {
                 ...prev,
                 videoPath,
+                downloadPath: downloadPath || null,
                 renderTime: Date.now() - startTime,
               }
             : null,
@@ -661,6 +716,7 @@ function App() {
               ...prev,
               settings: { ...prev.settings, ...partial },
               videoPath: null,
+              downloadPath: null,
               renderTime: null,
             }
           : null,
@@ -686,11 +742,10 @@ function App() {
 
   const handleLoadPreset = useCallback(
     (preset: Preset) => {
-      // Handle old presets that don't have outputFormat/frameRate
+      // Handle old presets missing newer fields
       const settings: Settings = {
+        ...createDefaultSettings(),
         ...preset.settings,
-        outputFormat: preset.settings.outputFormat ?? "landscape",
-        frameRate: preset.settings.frameRate ?? 30,
       };
       updateSettings(settings);
     },
@@ -764,7 +819,7 @@ function App() {
         e.preventDefault();
         if (image?.videoPath) {
           const link = document.createElement("a");
-          link.href = image.videoPath;
+          link.href = image.downloadPath || image.videoPath;
           link.download = "";
           link.click();
         }
@@ -877,9 +932,17 @@ function App() {
                   <ZoomIn size={16} />
                   Zoom
                 </button>
+                <button
+                  className={`mode-btn ${image.settings.markingMode === "lower-third" ? "active" : ""}`}
+                  onClick={() => updateSettings({ markingMode: "lower-third" })}
+                >
+                  <PanelBottom size={16} />
+                  Lower Third
+                </button>
               </div>
               {image.settings.markingMode !== "zoom" &&
-                image.settings.markingMode !== "unblur" && (
+                image.settings.markingMode !== "unblur" &&
+                image.settings.markingMode !== "lower-third" && (
                   <div className="mode-color-picker">
                     <span
                       className="color-preview"
@@ -904,7 +967,66 @@ function App() {
                 )}
             </div>
 
-            {isUploading || isProcessingOCR ? (
+            {image.settings.markingMode === "lower-third" ? (
+              <div className="lower-third-info">
+                <div className="lower-third-info-header">
+                  <PanelBottom size={20} strokeWidth={1.5} />
+                  <span>Animated Lower Third</span>
+                </div>
+                <div className="lower-third-info-fields">
+                  <div className="setting-group">
+                    <label className="setting-label" htmlFor="lt-text-main">
+                      Text
+                    </label>
+                    <input
+                      type="text"
+                      id="lt-text-main"
+                      className="text-input"
+                      placeholder="e.g., Microsoft launches new App"
+                      value={image.settings.lowerThirdName}
+                      onChange={(e) =>
+                        updateSettings({ lowerThirdName: e.target.value })
+                      }
+                      autoFocus
+                    />
+                  </div>
+                  <div className="slider-control">
+                    <div className="slider-header">
+                      <span className="slider-label">Duration</span>
+                      <span className="slider-value">
+                        {image.settings.lowerThirdDuration}s
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={MIN_LOWER_THIRD_DURATION}
+                      max={MAX_LOWER_THIRD_DURATION}
+                      step={0.5}
+                      value={image.settings.lowerThirdDuration}
+                      onChange={(e) =>
+                        updateSettings({
+                          lowerThirdDuration: parseFloat(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="lower-third-info-hint">
+                  Output: <strong>ProRes 4444 .mov</strong> with transparent
+                  background — overlay in DaVinci Resolve or other editors.
+                </p>
+                <button
+                  className="btn-ghost"
+                  style={{ marginTop: 8 }}
+                  onClick={() => {
+                    setImage(null);
+                    setStatus(null);
+                  }}
+                >
+                  New Image
+                </button>
+              </div>
+            ) : isUploading || isProcessingOCR ? (
               <div className="loading">
                 <div className="spinner" />
                 <span>
@@ -925,6 +1047,7 @@ function App() {
                           ...prev,
                           selectedWords: words,
                           videoPath: null,
+                          downloadPath: null,
                           renderTime: null,
                         }
                       : null,
@@ -934,7 +1057,7 @@ function App() {
                 onZoomBoxChange={(zoomBox) =>
                   pushImage((prev) =>
                     prev
-                      ? { ...prev, zoomBox, videoPath: null, renderTime: null }
+                      ? { ...prev, zoomBox, videoPath: null, downloadPath: null, renderTime: null }
                       : null,
                   )
                 }
@@ -951,286 +1074,290 @@ function App() {
             )}
 
             <div className="settings-panel">
-              <div className="settings-section">
-                <h3 className="settings-section-title">Timing</h3>
-                <div className="settings-grid">
-                  <div className="slider-control">
-                    <div className="slider-header">
-                      <span className="slider-label">Lead In</span>
-                      <span className="slider-value">
-                        {image.settings.leadInSeconds}s
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={MIN_LEAD_SECONDS}
-                      max={MAX_LEAD_SECONDS}
-                      step={0.5}
-                      value={image.settings.leadInSeconds}
-                      onChange={(e) =>
-                        updateSettings({
-                          leadInSeconds: parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  {image.settings.markingMode !== "zoom" && (
-                    <div className="slider-control">
-                      <div className="slider-header">
-                        <span className="slider-label">Speed</span>
-                        <span className="slider-value">
-                          {image.settings.charsPerSecond} chr/s
-                        </span>
+              {image.settings.markingMode !== "lower-third" && (
+                <>
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Timing</h3>
+                    <div className="settings-grid">
+                      <div className="slider-control">
+                        <div className="slider-header">
+                          <span className="slider-label">Lead In</span>
+                          <span className="slider-value">
+                            {image.settings.leadInSeconds}s
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={MIN_LEAD_SECONDS}
+                          max={MAX_LEAD_SECONDS}
+                          step={0.5}
+                          value={image.settings.leadInSeconds}
+                          onChange={(e) =>
+                            updateSettings({
+                              leadInSeconds: parseFloat(e.target.value),
+                            })
+                          }
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={MIN_CHARS_PER_SECOND}
-                        max={MAX_CHARS_PER_SECOND}
-                        step={1}
-                        value={image.settings.charsPerSecond}
-                        onChange={(e) =>
-                          updateSettings({
-                            charsPerSecond: parseInt(e.target.value, 10),
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  {image.settings.markingMode === "zoom" && (
-                    <div className="slider-control">
-                      <div className="slider-header">
-                        <span className="slider-label">Zoom Duration</span>
-                        <span className="slider-value">
-                          {image.settings.zoomDurationSeconds}s
-                        </span>
+                      {image.settings.markingMode !== "zoom" && (
+                        <div className="slider-control">
+                          <div className="slider-header">
+                            <span className="slider-label">Speed</span>
+                            <span className="slider-value">
+                              {image.settings.charsPerSecond} chr/s
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={MIN_CHARS_PER_SECOND}
+                            max={MAX_CHARS_PER_SECOND}
+                            step={1}
+                            value={image.settings.charsPerSecond}
+                            onChange={(e) =>
+                              updateSettings({
+                                charsPerSecond: parseInt(e.target.value, 10),
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                      {image.settings.markingMode === "zoom" && (
+                        <div className="slider-control">
+                          <div className="slider-header">
+                            <span className="slider-label">Zoom Duration</span>
+                            <span className="slider-value">
+                              {image.settings.zoomDurationSeconds}s
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={MIN_ZOOM_DURATION_SECONDS}
+                            max={MAX_ZOOM_DURATION_SECONDS}
+                            step={0.1}
+                            value={image.settings.zoomDurationSeconds}
+                            onChange={(e) =>
+                              updateSettings({
+                                zoomDurationSeconds: parseFloat(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                      <div className="slider-control">
+                        <div className="slider-header">
+                          <span className="slider-label">Lead Out</span>
+                          <span className="slider-value">
+                            {image.settings.leadOutSeconds}s
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={MIN_LEAD_SECONDS}
+                          max={MAX_LEAD_SECONDS}
+                          step={0.5}
+                          value={image.settings.leadOutSeconds}
+                          onChange={(e) =>
+                            updateSettings({
+                              leadOutSeconds: parseFloat(e.target.value),
+                            })
+                          }
+                        />
                       </div>
-                      <input
-                        type="range"
-                        min={MIN_ZOOM_DURATION_SECONDS}
-                        max={MAX_ZOOM_DURATION_SECONDS}
-                        step={0.1}
-                        value={image.settings.zoomDurationSeconds}
-                        onChange={(e) =>
-                          updateSettings({
-                            zoomDurationSeconds: parseFloat(e.target.value),
-                          })
-                        }
-                      />
                     </div>
-                  )}
-                  <div className="slider-control">
-                    <div className="slider-header">
-                      <span className="slider-label">Lead Out</span>
-                      <span className="slider-value">
-                        {image.settings.leadOutSeconds}s
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={MIN_LEAD_SECONDS}
-                      max={MAX_LEAD_SECONDS}
-                      step={0.5}
-                      value={image.settings.leadOutSeconds}
-                      onChange={(e) =>
-                        updateSettings({
-                          leadOutSeconds: parseFloat(e.target.value),
-                        })
-                      }
-                    />
                   </div>
-                </div>
-              </div>
 
-              <div className="settings-section">
-                <h3 className="settings-section-title">Effects</h3>
-                <div className="settings-row">
-                  <div className="setting-group">
-                    <label className="setting-label" htmlFor="camera-select">
-                      Camera
-                    </label>
-                    <select
-                      id="camera-select"
-                      className="select-input"
-                      value={image.settings.cameraMovement}
-                      onChange={(e) =>
-                        updateSettings({
-                          cameraMovement: e.target.value as CameraMovement,
-                        })
-                      }
-                    >
-                      <option value="left-right">Left → Right</option>
-                      <option value="right-left">Right → Left</option>
-                      <option value="up-down">Up → Down</option>
-                      <option value="down-up">Down → Up</option>
-                      <option value="zoom-in">Zoom In</option>
-                      <option value="zoom-out">Zoom Out</option>
-                      <option value="none">None</option>
-                    </select>
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Effects</h3>
+                    <div className="settings-row">
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="camera-select">
+                          Camera
+                        </label>
+                        <select
+                          id="camera-select"
+                          className="select-input"
+                          value={image.settings.cameraMovement}
+                          onChange={(e) =>
+                            updateSettings({
+                              cameraMovement: e.target.value as CameraMovement,
+                            })
+                          }
+                        >
+                          <option value="left-right">Left → Right</option>
+                          <option value="right-left">Right → Left</option>
+                          <option value="up-down">Up → Down</option>
+                          <option value="down-up">Down → Up</option>
+                          <option value="zoom-in">Zoom In</option>
+                          <option value="zoom-out">Zoom Out</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="enter-select">
+                          Enter
+                        </label>
+                        <select
+                          id="enter-select"
+                          className="select-input"
+                          value={image.settings.enterAnimation}
+                          onChange={(e) =>
+                            updateSettings({
+                              enterAnimation: e.target.value as EnterAnimation,
+                            })
+                          }
+                        >
+                          <option value="blur">Blur</option>
+                          <option value="from-bottom">From Bottom</option>
+                          <option value="from-top">From Top</option>
+                          <option value="from-left">From Left</option>
+                          <option value="from-right">From Right</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="exit-select">
+                          Exit
+                        </label>
+                        <select
+                          id="exit-select"
+                          className="select-input"
+                          value={image.settings.exitAnimation}
+                          onChange={(e) =>
+                            updateSettings({
+                              exitAnimation: e.target.value as ExitAnimation,
+                            })
+                          }
+                        >
+                          <option value="blur">Blur</option>
+                          <option value="to-bottom">To Bottom</option>
+                          <option value="to-top">To Top</option>
+                          <option value="to-left">To Left</option>
+                          <option value="to-right">To Right</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label
+                          className="setting-label"
+                          htmlFor="background-select"
+                        >
+                          Background
+                        </label>
+                        <select
+                          id="background-select"
+                          className="select-input"
+                          value={
+                            image.settings.blurredBackground
+                              ? "blurred"
+                              : "dominant"
+                          }
+                          onChange={(e) =>
+                            updateSettings({
+                              blurredBackground: e.target.value === "blurred",
+                            })
+                          }
+                        >
+                          <option value="dominant">Dominant Color</option>
+                          <option value="blurred">Blurred Image</option>
+                        </select>
+                      </div>
+                      <div className="setting-group">
+                        <label className="setting-label" htmlFor="overlay-select">
+                          Overlay
+                        </label>
+                        <select
+                          id="overlay-select"
+                          className="select-input"
+                          value={image.settings.vcrEffect ? "vcr" : "none"}
+                          onChange={(e) =>
+                            updateSettings({ vcrEffect: e.target.value === "vcr" })
+                          }
+                        >
+                          <option value="none">None</option>
+                          <option value="vcr">VCR Effect</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="setting-group">
-                    <label className="setting-label" htmlFor="enter-select">
-                      Enter
-                    </label>
-                    <select
-                      id="enter-select"
-                      className="select-input"
-                      value={image.settings.enterAnimation}
-                      onChange={(e) =>
-                        updateSettings({
-                          enterAnimation: e.target.value as EnterAnimation,
-                        })
-                      }
-                    >
-                      <option value="blur">Blur</option>
-                      <option value="from-bottom">From Bottom</option>
-                      <option value="from-top">From Top</option>
-                      <option value="from-left">From Left</option>
-                      <option value="from-right">From Right</option>
-                      <option value="none">None</option>
-                    </select>
-                  </div>
-                  <div className="setting-group">
-                    <label className="setting-label" htmlFor="exit-select">
-                      Exit
-                    </label>
-                    <select
-                      id="exit-select"
-                      className="select-input"
-                      value={image.settings.exitAnimation}
-                      onChange={(e) =>
-                        updateSettings({
-                          exitAnimation: e.target.value as ExitAnimation,
-                        })
-                      }
-                    >
-                      <option value="blur">Blur</option>
-                      <option value="to-bottom">To Bottom</option>
-                      <option value="to-top">To Top</option>
-                      <option value="to-left">To Left</option>
-                      <option value="to-right">To Right</option>
-                      <option value="none">None</option>
-                    </select>
-                  </div>
-                  <div className="setting-group">
-                    <label
-                      className="setting-label"
-                      htmlFor="background-select"
-                    >
-                      Background
-                    </label>
-                    <select
-                      id="background-select"
-                      className="select-input"
-                      value={
-                        image.settings.blurredBackground
-                          ? "blurred"
-                          : "dominant"
-                      }
-                      onChange={(e) =>
-                        updateSettings({
-                          blurredBackground: e.target.value === "blurred",
-                        })
-                      }
-                    >
-                      <option value="dominant">Dominant Color</option>
-                      <option value="blurred">Blurred Image</option>
-                    </select>
-                  </div>
-                  <div className="setting-group">
-                    <label className="setting-label" htmlFor="overlay-select">
-                      Overlay
-                    </label>
-                    <select
-                      id="overlay-select"
-                      className="select-input"
-                      value={image.settings.vcrEffect ? "vcr" : "none"}
-                      onChange={(e) =>
-                        updateSettings({ vcrEffect: e.target.value === "vcr" })
-                      }
-                    >
-                      <option value="none">None</option>
-                      <option value="vcr">VCR Effect</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
 
-              <div className="settings-section">
-                <h3 className="settings-section-title">Attribution</h3>
-                <div className="attribution-row">
-                  <div
-                    className="setting-group"
-                    style={{ flex: 1, minWidth: 0 }}
-                  >
-                    <label
-                      className="setting-label"
-                      htmlFor="attribution-input"
-                    >
-                      Lower Third Text
-                    </label>
-                    <input
-                      type="text"
-                      id="attribution-input"
-                      className="text-input"
-                      placeholder="e.g., via @username or Source: example.com"
-                      value={image.settings.attributionText}
-                      onChange={(e) =>
-                        updateSettings({ attributionText: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="setting-group">
-                    <label
-                      className="setting-label"
-                      htmlFor="attribution-bg-color"
-                    >
-                      Background
-                    </label>
-                    <div className="color-input-wrapper">
-                      <input
-                        type="color"
-                        id="attribution-bg-color"
-                        value={image.settings.attributionBgColor}
-                        onChange={(e) =>
-                          updateSettings({ attributionBgColor: e.target.value })
-                        }
-                      />
-                      <HexInput
-                        value={image.settings.attributionBgColor}
-                        onChange={(v) =>
-                          updateSettings({ attributionBgColor: v })
-                        }
-                      />
+                  <div className="settings-section">
+                    <h3 className="settings-section-title">Attribution</h3>
+                    <div className="attribution-row">
+                      <div
+                        className="setting-group"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
+                        <label
+                          className="setting-label"
+                          htmlFor="attribution-input"
+                        >
+                          Lower Third Text
+                        </label>
+                        <input
+                          type="text"
+                          id="attribution-input"
+                          className="text-input"
+                          placeholder="e.g., via @username or Source: example.com"
+                          value={image.settings.attributionText}
+                          onChange={(e) =>
+                            updateSettings({ attributionText: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="setting-group">
+                        <label
+                          className="setting-label"
+                          htmlFor="attribution-bg-color"
+                        >
+                          Background
+                        </label>
+                        <div className="color-input-wrapper">
+                          <input
+                            type="color"
+                            id="attribution-bg-color"
+                            value={image.settings.attributionBgColor}
+                            onChange={(e) =>
+                              updateSettings({ attributionBgColor: e.target.value })
+                            }
+                          />
+                          <HexInput
+                            value={image.settings.attributionBgColor}
+                            onChange={(v) =>
+                              updateSettings({ attributionBgColor: v })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="setting-group">
+                        <label
+                          className="setting-label"
+                          htmlFor="attribution-text-color"
+                        >
+                          Text
+                        </label>
+                        <div className="color-input-wrapper">
+                          <input
+                            type="color"
+                            id="attribution-text-color"
+                            value={image.settings.attributionTextColor}
+                            onChange={(e) =>
+                              updateSettings({
+                                attributionTextColor: e.target.value,
+                              })
+                            }
+                          />
+                          <HexInput
+                            value={image.settings.attributionTextColor}
+                            onChange={(v) =>
+                              updateSettings({ attributionTextColor: v })
+                            }
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="setting-group">
-                    <label
-                      className="setting-label"
-                      htmlFor="attribution-text-color"
-                    >
-                      Text
-                    </label>
-                    <div className="color-input-wrapper">
-                      <input
-                        type="color"
-                        id="attribution-text-color"
-                        value={image.settings.attributionTextColor}
-                        onChange={(e) =>
-                          updateSettings({
-                            attributionTextColor: e.target.value,
-                          })
-                        }
-                      />
-                      <HexInput
-                        value={image.settings.attributionTextColor}
-                        onChange={(v) =>
-                          updateSettings({ attributionTextColor: v })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
 
               <div className="settings-actions">
                 <button
@@ -1257,6 +1384,7 @@ function App() {
           <div className="editor-sidebar">
             <VideoPreview
               videoPath={image.videoPath}
+              downloadPath={image.downloadPath}
               isRendering={isRendering}
               renderTime={image.renderTime}
               renderProgress={progressState}

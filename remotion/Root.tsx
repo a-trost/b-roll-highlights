@@ -7,6 +7,7 @@ import {
   DEFAULT_CHARS_PER_SECOND,
   DEFAULT_UNBLUR_SECONDS,
   DEFAULT_ZOOM_DURATION_SECONDS,
+  DEFAULT_LOWER_THIRD_DURATION,
   FPS,
   OUTPUT_DIMENSIONS,
 } from "../src/types";
@@ -71,6 +72,9 @@ export const RemotionRoot: React.FC = () => {
           attributionText: "",
           outputFormat: "landscape" as const,
           frameRate: 30 as const,
+          lowerThirdName: "",
+          lowerThirdSubtitle: "",
+          lowerThirdDuration: DEFAULT_LOWER_THIRD_DURATION,
         }}
         calculateMetadata={({ props }) => {
           const typedProps = props as unknown as HighlightProps;
@@ -81,6 +85,21 @@ export const RemotionRoot: React.FC = () => {
           const exitAnimation = typedProps.exitAnimation ?? "none";
           const outputFormat = typedProps.outputFormat ?? "landscape";
           const fps = typedProps.frameRate ?? FPS;
+
+          // Lower-third mode: duration + padding on each side for clean cuts
+          if (typedProps.markingMode === "lower-third") {
+            const ltDuration = typedProps.lowerThirdDuration ?? DEFAULT_LOWER_THIRD_DURATION;
+            const padIn = Math.round(fps * 0.5);
+            const padOut = Math.round(fps * 0.7); // extra 0.2s so exit fully settles
+            const dims = OUTPUT_DIMENSIONS[outputFormat];
+            return {
+              durationInFrames: Math.round(ltDuration * fps) + padIn + padOut,
+              fps,
+              width: dims.width,
+              height: dims.height,
+              props,
+            };
+          }
 
           // Calculate lead-in frames (minimum 30 for animation)
           const leadInFrames = Math.max(30, Math.round(leadInSeconds * fps));

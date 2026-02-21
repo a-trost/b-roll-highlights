@@ -7,6 +7,7 @@ import {
   DEFAULT_CHARS_PER_SECOND,
   DEFAULT_UNBLUR_SECONDS,
   DEFAULT_ZOOM_DURATION_SECONDS,
+  DEFAULT_LOWER_THIRD_DURATION,
 } from '../../src/types';
 
 const corsHeaders = {
@@ -50,21 +51,33 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     attributionTextColor,
     outputFormat,
     frameRate,
+    lowerThirdName,
+    lowerThirdSubtitle,
+    lowerThirdDuration,
   } = body;
 
-  if (!filename || !backgroundColor) {
+  const isLowerThird = markingMode === 'lower-third';
+
+  if (!isLowerThird && (!filename || !backgroundColor)) {
     return { error: 'Missing required fields' };
   }
 
-  // Either selectedWords or zoomBox required
-  if ((!selectedWords || (selectedWords as WordBox[]).length === 0) && !zoomBox) {
-    return { error: 'Either selectedWords or zoomBox required' };
+  // Lower-third mode requires lowerThirdName
+  if (isLowerThird) {
+    if (!lowerThirdName || !(lowerThirdName as string).trim()) {
+      return { error: 'Lower third name is required' };
+    }
+  } else {
+    // Either selectedWords or zoomBox required for other modes
+    if ((!selectedWords || (selectedWords as WordBox[]).length === 0) && !zoomBox) {
+      return { error: 'Either selectedWords or zoomBox required' };
+    }
   }
 
   return {
-    imageSrc: `http://localhost:3001/uploads/${filename}`,
+    imageSrc: isLowerThird ? '' : `http://localhost:3001/uploads/${filename}`,
     selectedWords: (selectedWords as WordBox[]) || [],
-    backgroundColor: backgroundColor as [number, number, number],
+    backgroundColor: (backgroundColor as [number, number, number]) || [0, 0, 0],
     imageWidth: (imageWidth as number) || 1920,
     imageHeight: (imageHeight as number) || 1080,
     highlightColor: (highlightColor as string) || 'rgba(255, 230, 0, 0.5)',
@@ -85,6 +98,9 @@ function parseRenderBody(body: Record<string, unknown>): HighlightProps | { erro
     attributionTextColor: (attributionTextColor as string) || '#333333',
     outputFormat: (outputFormat as OutputFormat) || 'landscape',
     frameRate: (frameRate as 24 | 30 | 60) || 30,
+    lowerThirdName: (lowerThirdName as string) || '',
+    lowerThirdSubtitle: (lowerThirdSubtitle as string) || '',
+    lowerThirdDuration: (lowerThirdDuration as number) ?? DEFAULT_LOWER_THIRD_DURATION,
   };
 }
 
@@ -99,8 +115,8 @@ export async function handleRender(request: Request): Promise<Response> {
 
     const settings = await loadSettings();
     const outputDir = getOutputDir(settings);
-    const videoPath = await renderHighlightVideo(result, undefined, outputDir);
-    return jsonResponse({ videoPath });
+    const renderResult = await renderHighlightVideo(result, undefined, outputDir);
+    return jsonResponse(renderResult);
   } catch (error) {
     console.error('Render error:', error);
     return jsonResponse({ error: 'Failed to render video' }, 500);
@@ -122,16 +138,16 @@ export async function handleRenderStream(request: Request): Promise<Response> {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const sendEvent = (data: RenderProgress & { videoPath?: string }) => {
+        const sendEvent = (data: RenderProgress & { videoPath?: string; downloadPath?: string }) => {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         };
 
         try {
-          const videoPath = await renderHighlightVideo(result, (progress) => {
+          const renderResult = await renderHighlightVideo(result, (progress) => {
             sendEvent(progress);
           }, outputDir);
 
-          sendEvent({ stage: 'done', progress: 100, message: 'Complete!', videoPath });
+          sendEvent({ stage: 'done', progress: 100, message: 'Complete!', ...renderResult });
           controller.close();
         } catch (error) {
           console.error('Render error:', error);

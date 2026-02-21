@@ -74,7 +74,7 @@ export interface OCRResult {
   imageHeight: number;
 }
 
-export type MarkingMode = "highlight" | "circle" | "underline" | "unblur" | "zoom";
+export type MarkingMode = "highlight" | "circle" | "underline" | "unblur" | "zoom" | "lower-third";
 
 // Zoom bounding box (coordinates are relative to image, 0-1 range)
 export interface ZoomBox {
@@ -124,6 +124,9 @@ export interface HighlightProps {
   zoomDurationSeconds?: number;
   outputFormat?: OutputFormat;
   frameRate?: 24 | 30 | 60;
+  lowerThirdName?: string;
+  lowerThirdSubtitle?: string;
+  lowerThirdDuration?: number;
 }
 
 // Circle/pen stroke colors for light backgrounds (darker colors with multiply blend)
@@ -188,6 +191,11 @@ export const MAX_CHARS_PER_SECOND = 30;
 export const DEFAULT_ZOOM_DURATION_SECONDS = 1.5;
 export const MIN_ZOOM_DURATION_SECONDS = 0.5;
 export const MAX_ZOOM_DURATION_SECONDS = 5;
+
+// Lower third duration (seconds)
+export const DEFAULT_LOWER_THIRD_DURATION = 5;
+export const MIN_LOWER_THIRD_DURATION = 2;
+export const MAX_LOWER_THIRD_DURATION = 10;
 
 // Legacy export for backwards compatibility
 export const CHARS_PER_SECOND = DEFAULT_CHARS_PER_SECOND;
