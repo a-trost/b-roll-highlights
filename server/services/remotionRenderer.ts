@@ -180,6 +180,8 @@ async function renderLowerThird(
     serveUrl: bundlePath,
     codec: 'prores',
     proResProfile: '4444',
+    pixelFormat: 'yuva444p10le',
+    imageFormat: 'png',
     outputLocation: movPath,
     inputProps,
     onProgress: ({ progress }) => {
