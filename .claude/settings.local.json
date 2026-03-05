@@ -15,7 +15,8 @@
       "Bash(bun build:*)",
       "Bash(npm run build:*)",
       "Bash(npx remotion:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(tail:*)"
     ]
   }
 }

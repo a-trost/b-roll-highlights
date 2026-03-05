@@ -108,6 +108,7 @@ export async function renderHighlightVideo(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps,
+    muted: true,
     onProgress: ({ progress }) => {
       const pct = Math.round(20 + progress * 75);
       onProgress?.({ stage: 'rendering', progress: pct, message: `Rendering: ${Math.round(progress * 100)}%` });
@@ -153,6 +154,7 @@ async function renderLowerThird(
     codec: 'h264',
     outputLocation: previewPath,
     inputProps: previewProps,
+    muted: true,
     onProgress: ({ progress }) => {
       const pct = Math.round(20 + progress * 35);
       onProgress?.({ stage: 'rendering', progress: pct, message: `Preview: ${Math.round(progress * 100)}%` });
@@ -184,6 +186,7 @@ async function renderLowerThird(
     imageFormat: 'png',
     outputLocation: movPath,
     inputProps,
+    muted: true,
     onProgress: ({ progress }) => {
       const pct = Math.round(56 + progress * 39);
       onProgress?.({ stage: 'rendering', progress: pct, message: `ProRes: ${Math.round(progress * 100)}%` });
